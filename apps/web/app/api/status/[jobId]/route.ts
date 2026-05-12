@@ -1,5 +1,6 @@
 // MY STUDIO — GET /api/status/[jobId]
-// PURPOSE: Poll job status from Supabase
+// PURPOSE: Poll job status from Supabase content_jobs table
+// SECURITY: getUser() -> validate params -> fetch job scoped to user
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -27,11 +28,13 @@ export async function GET(
     return NextResponse.json({ message: 'Invalid job ID' }, { status: 400 });
   }
 
-  // 3. Fetch job from Supabase (scoped to user)
+  // 3. Fetch job from Supabase (scoped to user via user_id match)
   const supabase = await createServerSupabaseClient();
   const { data: job, error } = await supabase
-    .from('jobs')
-    .select('id, status, step, progress, output_url, error, created_at, updated_at')
+    .from('content_jobs')
+    .select(
+      'id, module, status, current_step, progress_percent, output_url, output_metadata, error_message, created_at, started_at, completed_at',
+    )
     .eq('id', parsed.data.jobId)
     .eq('user_id', user.id)
     .single();
@@ -42,12 +45,15 @@ export async function GET(
 
   return NextResponse.json({
     id: job.id,
+    module: job.module,
     status: job.status,
-    step: job.step,
-    progress: job.progress,
+    currentStep: job.current_step,
+    progress: job.progress_percent,
     outputUrl: job.output_url,
-    error: job.error,
+    outputMetadata: job.output_metadata,
+    error: job.error_message,
     createdAt: job.created_at,
-    updatedAt: job.updated_at,
+    startedAt: job.started_at,
+    completedAt: job.completed_at,
   });
 }
