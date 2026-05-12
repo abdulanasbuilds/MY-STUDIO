@@ -532,3 +532,44 @@ def analyze_rival(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, 
         logger.error(f"Rival analysis failed: {e}")
         update_job_status(job_id, "failed", "error", 0, error=str(e))
         return {"job_id": job_id, "status": "failed", "error": "Analysis failed"}, 500, get_cors_headers()
+
+# ===========================================================================
+# AUDIO (M09)
+# ===========================================================================
+@app.function(
+    image=gpu_image,
+    secrets=[secrets],
+    gpu="A10G",
+    timeout=600,
+    volumes={
+        "/models/musicgen": vol_musicgen,
+        "/models/demucs": vol_demucs,
+    },
+)
+@modal.web_endpoint(method="POST", label="my-studio-generate-audio")
+def generate_audio(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
+    """Process or generate audio.
+    
+    Pipeline: MusicGen -> Demucs -> Matchering
+    
+    Args:
+        data: Request containing mode, prompt, audio_url, job_id.
+    
+    Returns:
+        Accepted response with job_id.
+    """
+    if not verify_request(data):
+        return {"error": "Unauthorized"}, 401, get_cors_headers()
+    
+    job_id: str = data["job_id"]
+    update_job_status(job_id, "processing", "initializing", 0)
+    
+    try:
+        from pipelines.audio_pipeline import run_audio_pipeline
+        output_url = run_audio_pipeline(data)
+        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
+        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
+    except Exception as e:
+        logger.error(f"Audio generation failed: {e}")
+        update_job_status(job_id, "failed", "error", 0, error=str(e))
+        return {"job_id": job_id, "status": "failed", "error": "Audio generation failed"}, 500, get_cors_headers()
