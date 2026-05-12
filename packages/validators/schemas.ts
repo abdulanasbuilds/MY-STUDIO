@@ -113,3 +113,8 @@ export const generateRemixVideoSchema = z.object({
   remixAngle: z.string().min(1).max(500),
   style: z.enum(['dynamic', 'minimal', 'cinematic']).default('dynamic'),
 });
+
+export const generateEditSchema = z.object({
+  videoUrl: z.string().url(),
+  command: z.string().min(1).max(1000),
+});

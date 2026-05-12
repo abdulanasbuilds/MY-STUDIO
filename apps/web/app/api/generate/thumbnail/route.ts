@@ -4,7 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getUser } from '@/lib/supabase';
+import { FEATURES } from '@my-studio/config/feature-flags';
+import { getUser, createServerSupabaseClient } from '@/lib/supabase';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 const thumbnailSchema = z.object({
@@ -18,6 +19,13 @@ export async function POST(request: NextRequest) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!FEATURES.THUMBNAILS) {
+    return NextResponse.json(
+      { message: 'Thumbnail Engine is not enabled' },
+      { status: 403 },
+    );
   }
 
   const body: unknown = await request.json();
@@ -37,8 +45,55 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // TODO: Feature flag check, create job record, forward to Modal
+  const supabase = await createServerSupabaseClient();
   const jobId = crypto.randomUUID();
+  const { error: jobError } = await supabase.from('content_jobs').insert({
+    id: jobId,
+    user_id: user.id,
+    module: 'thumbnails',
+    status: 'queued',
+    current_step: 'queued',
+    progress_percent: 0,
+    input_type: 'text',
+    input_data: {
+      prompt: parsed.data.prompt,
+      style: parsed.data.style,
+      count: parsed.data.count,
+      platform: parsed.data.platform,
+    },
+    settings: {
+      style: parsed.data.style,
+    },
+  });
+
+  if (jobError) {
+    return NextResponse.json(
+      { message: 'Failed to create job' },
+      { status: 500 },
+    );
+  }
+
+  const modalBaseUrl = process.env.MODAL_BASE_URL;
+  const modalToken = process.env.MODAL_API_SECRET_TOKEN;
+
+  if (modalBaseUrl && modalToken) {
+    fetch(`${modalBaseUrl}/generate/thumbnail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_id: jobId,
+        user_id: user.id,
+        prompt: parsed.data.prompt,
+        style: parsed.data.style,
+        count: parsed.data.count,
+        platform: parsed.data.platform,
+        api_token: modalToken,
+        timestamp: Math.floor(Date.now() / 1000),
+      }),
+    }).catch(() => {
+      // Failed to trigger
+    });
+  }
 
   return NextResponse.json({ jobId }, { status: 202 });
 }

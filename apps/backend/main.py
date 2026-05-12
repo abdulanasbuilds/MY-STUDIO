@@ -573,3 +573,4 @@ def generate_audio(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str,
         logger.error(f"Audio generation failed: {e}")
         update_job_status(job_id, "failed", "error", 0, error=str(e))
         return {"job_id": job_id, "status": "failed", "error": "Audio generation failed"}, 500, get_cors_headers()
+
