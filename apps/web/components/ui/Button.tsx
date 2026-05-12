@@ -3,8 +3,8 @@
 // MY STUDIO — Button.tsx
 // PURPOSE: Reusable button with variants, sizes, loading state, and Framer Motion animations
 
-import { forwardRef, type ButtonHTMLAttributes } from 'react';
-import { motion } from 'framer-motion';
+import { forwardRef } from 'react';
+import { motion, type HTMLMotionProps } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
 import { cn } from '@/lib/cn';
@@ -12,7 +12,7 @@ import { cn } from '@/lib/cn';
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
 type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends HTMLMotionProps<'button'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   isLoading?: boolean;
