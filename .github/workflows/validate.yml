@@ -1,0 +1,31 @@
+name: Validate
+
+on:
+  push:
+    branches: ['*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run type-check
+
+  validate-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install modal pydantic supabase cloudinary httpx
+      - run: python -m py_compile apps/backend/main.py
+      - run: python -m py_compile apps/backend/security.py
+      - run: python -m py_compile apps/backend/db.py
+      - run: python -m py_compile apps/backend/storage.py

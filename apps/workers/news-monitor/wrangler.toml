@@ -1,0 +1,9 @@
+name = "my-studio-news-monitor"
+main = "index.js"
+compatibility_date = "2024-11-01"
+
+[triggers]
+crons = ["0 */4 * * *"]
+
+[vars]
+ENVIRONMENT = "production"
