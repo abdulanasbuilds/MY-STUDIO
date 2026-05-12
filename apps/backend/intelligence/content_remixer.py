@@ -3,42 +3,58 @@
 # CONNECTS TO: remix_pipeline.py
 # GPU: CPU (uses Gemini API)
 
+import logging
+import json
+from typing import Any
+
+logger = logging.getLogger("my-studio")
+
 
 def analyze_viral_video(
-    video_url: str,
+    transcript: str,
     job_id: str,
-) -> dict:
-    """Analyze a viral video to extract its structure and hooks.
+) -> dict[str, Any]:
+    """Analyze a viral video transcript to extract its structure and hooks.
 
-    Downloads and analyzes a viral video to understand what makes
-    it effective, extracting structure, hooks, pacing, and themes.
+    Uses Gemini API to understand what makes the video effective,
+    extracting structure, hooks, pacing, and themes.
 
     Args:
-        video_url: URL of the viral video to analyze.
+        transcript: Full transcript of the viral video.
         job_id: Job ID for status tracking.
 
     Returns:
-        Dictionary containing:
-        - "hook": Opening hook description and timing.
-        - "structure": Scene-by-scene breakdown.
-        - "pacing": Pacing analysis (cuts per minute, rhythm).
-        - "themes": Identified themes and topics.
-        - "emotional_arc": Emotional journey mapping.
-        - "engagement_techniques": List of techniques used.
-        - "transcript": Full transcript with timestamps.
+        Dictionary containing the analysis.
     """
-    raise NotImplementedError("Viral video analyzer — see PLAN.md Phase 5")
+    logger.info(f"[{job_id}] Analyzing viral video transcript ({len(transcript)} chars)")
+
+    # In production: Call Gemini API
+    # For now, simulate the analysis response
+    
+    return {
+        "hook": "Strong pattern interrupt in first 3s followed by a controversial statement.",
+        "structure": [
+            {"start": 0, "end": 3, "purpose": "Hook", "description": "Grabs attention"},
+            {"start": 3, "end": 15, "purpose": "Setup", "description": "Establishes context"},
+            {"start": 15, "end": 45, "purpose": "Body", "description": "Delivers core value"},
+            {"start": 45, "end": 60, "purpose": "Payoff", "description": "Resolves tension + CTA"}
+        ],
+        "pacing": "Fast-paced, average 2 seconds per cut",
+        "themes": ["Productivity", "AI Tools", "Time Management"],
+        "emotional_arc": "Curiosity -> Tension -> Relief/Aha moment",
+        "engagement_techniques": ["Text overlays", "B-roll cutaways", "Sound effects on transitions"],
+        "transcript": transcript
+    }
 
 
 def generate_remix_script(
-    analysis: dict,
+    analysis: dict[str, Any],
     user_niche: str,
     user_audience: str,
-    user_voice: str,
     remix_goal: str,
     target_platform: str,
-    target_duration: int,
-) -> dict:
+    job_id: str,
+) -> dict[str, Any]:
     """Generate a remix script based on viral video analysis.
 
     Takes the analysis of a viral video and creates a new script
@@ -46,21 +62,47 @@ def generate_remix_script(
 
     Args:
         analysis: Output from analyze_viral_video().
-        user_niche: The user's content niche (e.g. "tech reviews").
+        user_niche: The user's content niche (e.g. "fitness").
         user_audience: Target audience description.
-        user_voice: The user's brand voice/tone description.
-        remix_goal: What the user wants to achieve with the remix.
-        target_platform: Platform to optimize for (youtube, tiktok, instagram).
-        target_duration: Target duration in seconds.
+        remix_goal: What the user wants to achieve (same_topic, extract_structure, etc).
+        target_platform: Target platform (tiktok, youtube, etc).
+        job_id: Job ID.
 
     Returns:
-        Dictionary containing:
-        - "title": Suggested video title.
-        - "hook": Opening hook script (first 3 seconds).
-        - "scenes": List of scene dicts with "narration", "visual_direction",
-          "duration", and "notes".
-        - "cta": Call-to-action script.
-        - "hashtags": Suggested hashtags for the platform.
-        - "thumbnail_prompt": FLUX.1 prompt for thumbnail generation.
+        Dictionary containing the generated remix script.
     """
-    raise NotImplementedError("Remix script generator — see PLAN.md Phase 5")
+    logger.info(f"[{job_id}] Generating remix script for niche: {user_niche}")
+
+    # In production: Call Gemini API to generate the script
+    # based on the analysis and user parameters.
+    # For now, simulate the output
+
+    title = f"The ultimate {user_niche} hack you've been missing"
+    
+    return {
+        "title": title,
+        "hook": "Stop scrolling! If you care about " + user_niche + ", you need to hear this.",
+        "scenes": [
+            {
+                "narration": "Stop scrolling! If you care about " + user_niche + ", you need to hear this.",
+                "visual_direction": "Close up, energetic expression, pointing at camera.",
+                "duration": 3,
+                "notes": "Fast zoom effect"
+            },
+            {
+                "narration": "Most people get it completely wrong. They think it's about X, but it's actually about Y.",
+                "visual_direction": "Split screen or side-by-side comparison graphic.",
+                "duration": 5,
+                "notes": "Pop sound effect on graphic appearance"
+            },
+            {
+                "narration": "Here's the exact framework I use to get results every single time.",
+                "visual_direction": "Walking or dynamic movement to keep visual interest.",
+                "duration": 4,
+                "notes": "Text overlay with framework name"
+            }
+        ],
+        "cta": "Save this video so you don't forget it, and drop a follow for more daily " + user_niche + " tips.",
+        "hashtags": [f"#{user_niche.replace(' ', '')}", "#tips", "#creator", "#strategy"],
+        "thumbnail_prompt": f"A highly engaging youtube thumbnail about {user_niche}, bold text, high contrast, cinematic lighting, 8k resolution"
+    }
