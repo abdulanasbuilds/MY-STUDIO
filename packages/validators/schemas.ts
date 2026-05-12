@@ -107,3 +107,9 @@ export type GenerateDubbingInput = z.infer<typeof generateDubbingSchema>;
 export type GenerateThumbnailInput = z.infer<typeof generateThumbnailSchema>;
 export type AddRivalInput = z.infer<typeof addRivalSchema>;
 export type UpdateJobStatusInput = z.infer<typeof updateJobStatusSchema>;
+
+export const generateRemixVideoSchema = z.object({
+  sourceUrl: z.string().url(),
+  remixAngle: z.string().min(1).max(500),
+  style: z.enum(['dynamic', 'minimal', 'cinematic']).default('dynamic'),
+});
