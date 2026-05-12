@@ -496,3 +496,39 @@ def clone_voice(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, st
         logger.error(f"Voice cloning failed: {e}")
         update_job_status(job_id, "failed", "error", 0, error=str(e))
         return {"job_id": job_id, "status": "failed", "error": "Voice cloning failed"}, 500, get_cors_headers()
+
+# ===========================================================================
+# SPY (M14)
+# ===========================================================================
+@app.function(
+    image=image,
+    secrets=[secrets],
+    timeout=120,
+)
+@modal.web_endpoint(method="POST", label="my-studio-analyze-rival")
+def analyze_rival(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
+    """Analyze a competitor's strategy.
+    
+    Pipeline: Firecrawl scraping -> Gemini analysis
+    
+    Args:
+        data: Request containing platform, profile_url, name, job_id.
+    
+    Returns:
+        Accepted response with job_id.
+    """
+    if not verify_request(data):
+        return {"error": "Unauthorized"}, 401, get_cors_headers()
+    
+    job_id: str = data["job_id"]
+    update_job_status(job_id, "processing", "initializing", 0)
+    
+    try:
+        from intelligence.competitor_spy import analyze_competitor
+        output_url = analyze_competitor(data)
+        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
+        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
+    except Exception as e:
+        logger.error(f"Rival analysis failed: {e}")
+        update_job_status(job_id, "failed", "error", 0, error=str(e))
+        return {"job_id": job_id, "status": "failed", "error": "Analysis failed"}, 500, get_cors_headers()

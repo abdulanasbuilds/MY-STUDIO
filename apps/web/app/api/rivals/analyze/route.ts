@@ -1,16 +1,19 @@
 // MY STUDIO — POST /api/rivals/analyze
-// PURPOSE: Trigger rival/competitor analysis
+// PURPOSE: Trigger rival/competitor analysis via Modal
+// SECURITY: getUser() -> Zod safeParse() -> checkRateLimit() -> feature flag -> create job -> forward to Modal
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getUser } from '@/lib/supabase';
+import { FEATURES } from '@my-studio/config/feature-flags';
+import { getUser, createServerSupabaseClient } from '@/lib/supabase';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 const analyzeSchema = z.object({
   channelUrl: z.string().url(),
   platform: z.enum(['youtube', 'tiktok', 'instagram', 'twitter']),
-  depth: z.enum(['quick', 'standard', 'deep']).default('standard'),
+  name: z.string().min(1),
+  rivalId: z.string().uuid().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -20,7 +23,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
-  // 2. Validate input
+  // 2. Feature flag check
+  if (!FEATURES.SPY) {
+    return NextResponse.json(
+      { message: 'Competitor Spy is not enabled' },
+      { status: 403 },
+    );
+  }
+
+  // 3. Parse and validate input with Zod
   const body: unknown = await request.json();
   const parsed = analyzeSchema.safeParse(body);
   if (!parsed.success) {
@@ -30,7 +41,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 3. Rate limit check
+  // 4. Rate limit check
   const isLimited = await checkRateLimit(user.id, 'generation');
   if (isLimited) {
     return NextResponse.json(
@@ -39,8 +50,56 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 4. TODO: Feature flag check, create analysis job, forward to Modal/Cloudflare Worker
+  // 5. Create job record in Supabase
+  const supabase = await createServerSupabaseClient();
   const jobId = crypto.randomUUID();
+  const { error: jobError } = await supabase.from('content_jobs').insert({
+    id: jobId,
+    user_id: user.id,
+    module: 'spy',
+    status: 'queued',
+    current_step: 'queued',
+    progress_percent: 0,
+    input_type: 'url',
+    input_data: {
+      profile_url: parsed.data.channelUrl,
+      platform: parsed.data.platform,
+      name: parsed.data.name,
+      rival_id: parsed.data.rivalId,
+    },
+    settings: {},
+  });
 
+  if (jobError) {
+    return NextResponse.json(
+      { message: 'Failed to create job' },
+      { status: 500 },
+    );
+  }
+
+  // 6. Forward to Modal backend (fire-and-forget)
+  const modalBaseUrl = process.env.MODAL_BASE_URL;
+  const modalToken = process.env.MODAL_API_SECRET_TOKEN;
+
+  if (modalBaseUrl && modalToken) {
+    fetch(`${modalBaseUrl}/analyze-rival`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_id: jobId,
+        user_id: user.id,
+        profile_url: parsed.data.channelUrl,
+        platform: parsed.data.platform,
+        name: parsed.data.name,
+        rival_id: parsed.data.rivalId,
+        api_token: modalToken,
+        timestamp: Math.floor(Date.now() / 1000),
+      }),
+    }).catch(() => {
+      // Modal trigger failed
+    });
+  }
+
+  // 7. Return job ID immediately
   return NextResponse.json({ jobId }, { status: 202 });
 }
