@@ -200,44 +200,20 @@ def _run_tts_inference(
     gpt_path: str,
     sovits_path: str,
 ) -> None:
-    """Run GPT-SoVITS TTS inference for a single text chunk.
-
-    This is the core inference function that calls the GPT-SoVITS
-    model to generate speech audio conditioned on the reference speaker.
-
-    Args:
-        text: Text to synthesize.
-        reference_audio: Path to the reference audio for voice conditioning.
-        output_path: Path to save the output WAV.
-        language: Language code.
-        gpt_path: Path to GPT model weights.
-        sovits_path: Path to SoVITS model weights.
-    """
-    import torch
-    import numpy as np
-    import soundfile as sf
-
-    # Load GPT-SoVITS inference components
-    # This uses the GPT-SoVITS API internally
-    from transformers import AutoTokenizer, AutoModelForCausalLM
-
-    # Generate mel spectrogram via GPT model
-    # Then convert to waveform via SoVITS vocoder
-    # Reference audio provides speaker embedding
-
-    # For now, generate a placeholder audio file at the correct duration
-    # The actual model inference will be connected when deployed on Modal
+    """Run GPT-SoVITS TTS inference for a single text chunk."""
     logger.info(f"TTS inference: '{text[:50]}...' -> {output_path}")
-
-    # Estimate duration: ~150 words per minute average speech rate
-    word_count = len(text.split())
-    duration_seconds = max(1.0, word_count / 2.5)  # ~150 wpm
-
-    # Generate silence as placeholder (replaced by actual model output on GPU)
-    sample_rate = 22050
-    samples = int(duration_seconds * sample_rate)
-    audio_data = np.zeros(samples, dtype=np.float32)
-    sf.write(output_path, audio_data, sample_rate)
+    import torch
+    from GPT_SoVITS.inference import infer as gptsovits_infer
+    ref_audio = torchaudio_load(reference_audio)
+    result_audio = gptsovits_infer(
+        text=text,
+        reference_audio=ref_audio,
+        gpt_model_path=gpt_path,
+        sovits_model_path=sovits_path,
+        target_language=language,
+    )
+    import soundfile as sf
+    sf.write(output_path, result_audio, 24000)
 
 
 def _get_audio_duration(audio_path: str) -> float:

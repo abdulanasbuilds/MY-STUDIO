@@ -1,9 +1,4 @@
 # MY STUDIO — models/flux.py
-# PURPOSE: FLUX.1-schnell/dev image generation inference
-# OPEN SOURCE: github.com/black-forest-labs/FLUX.1-schnell
-# CONNECTS TO: thumbnail_pipeline.py, movie_pipeline.py
-# GPU: A10G (24GB)
-
 import logging
 import os
 from pathlib import Path
@@ -15,9 +10,23 @@ MODEL_DIR = "/models/flux"
 
 
 def load_flux(model_path: str = MODEL_DIR) -> dict[str, Any]:
-    """Load FLUX.1 model from volume."""
+    weights_path = Path(model_path)
+    if not weights_path.exists():
+        raise FileNotFoundError(
+            f"FLUX.1 weights not found at {model_path}. "
+            "Run scripts/download-models.py first."
+        )
     logger.info("Loading FLUX.1 model...")
-    return {"model_path": model_path, "loaded": True}
+    import torch
+    from diffusers import FluxPipeline
+    pipe = FluxPipeline.from_pretrained(
+        str(weights_path),
+        torch_dtype=torch.bfloat16,
+    )
+    pipe.to("cuda")
+    pipe.enable_model_cpu_offload()
+    logger.info("FLUX.1 model loaded successfully.")
+    return {"pipeline": pipe, "model_path": model_path}
 
 
 def generate_image(
@@ -26,31 +35,24 @@ def generate_image(
     width: int = 1024,
     height: int = 1024,
     model: dict[str, Any] | None = None,
+    num_inference_steps: int = 28,
+    guidance_scale: float = 3.5,
 ) -> str:
-    """Generate image from text prompt using FLUX.1.
-
-    Args:
-        prompt: Text description.
-        output_path: Where to save.
-        width: Output image width.
-        height: Output image height.
-        model: Loaded model dict.
-
-    Returns:
-        Path to output image.
-    """
     logger.info(f"FLUX.1 generating image ({width}x{height}): {prompt[:50]}...")
-    
     if model is None:
         model = load_flux()
-        
-    # In production: Run diffusers pipeline for FLUX.1
-    # For now: generate a dummy solid color image using PIL
-    from PIL import Image
-    import random
-    
-    color = (random.randint(50,200), random.randint(50,200), random.randint(50,200))
-    img = Image.new("RGB", (width, height), color)
-    img.save(output_path)
-    
+    pipe = model["pipeline"]
+    import torch
+    result = pipe(
+        prompt=prompt,
+        width=width,
+        height=height,
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        generator=torch.Generator(device="cuda").manual_seed(42),
+    )
+    images = result.images
+    if images:
+        images[0].save(output_path)
+    logger.info(f"Image saved: {output_path}")
     return output_path

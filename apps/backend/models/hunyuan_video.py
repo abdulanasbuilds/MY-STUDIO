@@ -1,32 +1,34 @@
 # MY STUDIO — models/hunyuan_video.py
-# PURPOSE: HunyuanVideo model loading and inference for general video generation
-# MODEL: https://github.com/Tencent/HunyuanVideo
-# GPU: A100 (80GB) — generates video clips from text/image prompts
-# CONNECTS TO: pipelines/movie_pipeline.py, pipelines/documentary_pipeline.py, pipelines/remix_pipeline.py
-
+import logging
+from pathlib import Path
 from typing import Any
 
+logger = logging.getLogger("my-studio")
 
-def load_hunyuan_video(model_path: str = "/models/hunyuan-video") -> Any:
-    """Load the HunyuanVideo model from disk.
+MODEL_DIR = "/models/hunyuan-video"
 
-    Args:
-        model_path: Path to the model weights directory.
 
-    Returns:
-        Loaded model pipeline ready for inference.
-
-    Raises:
-        NotImplementedError: Model loading not yet implemented.
-    """
-    raise NotImplementedError(
-        "HunyuanVideo model loading not yet implemented. "
-        "See https://github.com/Tencent/HunyuanVideo"
+def load_hunyuan_video(model_path: str = MODEL_DIR) -> dict[str, Any]:
+    weights_path = Path(model_path)
+    if not weights_path.exists():
+        raise FileNotFoundError(
+            f"HunyuanVideo weights not found at {model_path}. "
+            "Run scripts/download-models.py first."
+        )
+    logger.info("Loading HunyuanVideo model...")
+    import torch
+    from diffusers import HunyuanVideoPipeline
+    pipe = HunyuanVideoPipeline.from_pretrained(
+        str(weights_path),
+        torch_dtype=torch.bfloat16,
     )
+    pipe.enable_model_cpu_offload()
+    logger.info("HunyuanVideo model loaded successfully.")
+    return {"pipeline": pipe, "model_path": model_path}
 
 
 def generate_video(
-    model: Any,
+    model: dict[str, Any],
     prompt: str,
     negative_prompt: str = "",
     width: int = 1280,
@@ -35,25 +37,28 @@ def generate_video(
     guidance_scale: float = 7.5,
     output_path: str = "/tmp/hunyuan_output.mp4",
 ) -> str:
-    """Generate a video clip from a text prompt.
-
-    Args:
-        model: Loaded HunyuanVideo model.
-        prompt: Text description of the desired video.
-        negative_prompt: Things to avoid in generation.
-        width: Output width in pixels.
-        height: Output height in pixels.
-        num_frames: Number of frames to generate.
-        guidance_scale: Classifier-free guidance scale.
-        output_path: Path to write the output video.
-
-    Returns:
-        Path to the generated video file.
-
-    Raises:
-        NotImplementedError: Inference not yet implemented.
-    """
-    raise NotImplementedError(
-        "HunyuanVideo inference not yet implemented. "
-        "See https://github.com/Tencent/HunyuanVideo"
+    logger.info(f"HunyuanVideo generating {num_frames} frames: {prompt[:50]}...")
+    pipe = model["pipeline"]
+    import torch, subprocess, tempfile
+    result = pipe(
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        height=height,
+        width=width,
+        num_frames=num_frames,
+        guidance_scale=guidance_scale,
+        generator=torch.Generator(device="cuda").manual_seed(42),
     )
+    frames = result.frames[0]
+    with tempfile.TemporaryDirectory(prefix="hunyuan_") as tmpdir:
+        for i, frame in enumerate(frames):
+            frame.save(f"{tmpdir}/frame_{i:06d}.png")
+        fps = num_frames / max(1, num_frames / 8)
+        subprocess.run([
+            "ffmpeg", "-y", "-framerate", str(int(fps)),
+            "-i", f"{tmpdir}/frame_%06d.png",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+            "-pix_fmt", "yuv420p", output_path
+        ], check=True, capture_output=True)
+    logger.info(f"Video saved: {output_path}")
+    return output_path

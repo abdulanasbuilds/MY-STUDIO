@@ -1,12 +1,6 @@
 # MY STUDIO — models/cogvideo.py
-# PURPOSE: CogVideoX 1.5 video generation inference
-# OPEN SOURCE: github.com/zai-org/CogVideo
-# CONNECTS TO: movie_pipeline.py
-# GPU: A100 (80GB)
-
 import logging
 import os
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -16,9 +10,23 @@ MODEL_DIR = "/models/cogvideo"
 
 
 def load_cogvideo(model_path: str = MODEL_DIR) -> dict[str, Any]:
-    """Load CogVideoX 1.5 model from volume."""
+    weights_path = Path(model_path)
+    if not weights_path.exists():
+        raise FileNotFoundError(
+            f"CogVideoX weights not found at {model_path}. "
+            "Run scripts/download-models.py first."
+        )
     logger.info("Loading CogVideoX 1.5 model...")
-    return {"model_path": model_path, "loaded": True}
+    import torch
+    from diffusers import CogVideoXPipeline
+    pipe = CogVideoXPipeline.from_pretrained(
+        str(weights_path),
+        torch_dtype=torch.bfloat16,
+    )
+    pipe.enable_model_cpu_offload()
+    pipe.vae.enable_tiling()
+    logger.info("CogVideoX 1.5 model loaded successfully.")
+    return {"pipeline": pipe, "model_path": model_path}
 
 
 def generate_cogvideo(
@@ -26,35 +34,32 @@ def generate_cogvideo(
     output_path: str,
     num_frames: int = 81,
     model: dict[str, Any] | None = None,
+    num_inference_steps: int = 50,
+    guidance_scale: float = 7.0,
 ) -> str:
-    """Generate video from text prompt using CogVideoX 1.5.
-
-    Args:
-        prompt: Text description.
-        output_path: Where to save.
-        num_frames: Frame count.
-        model: Loaded model dict.
-
-    Returns:
-        Path to output video.
-    """
     logger.info(f"CogVideoX generating {num_frames} frames: {prompt[:50]}...")
-    
     if model is None:
         model = load_cogvideo()
-        
-    # In production: Pipeline execution
-    # For now: generate blank video placeholder via ffmpeg
-    fps = 8
-    duration = max(1.0, num_frames / fps)
-    
-    cmd = [
-        "ffmpeg", "-y",
-        "-f", "lavfi",
-        "-i", f"color=c=black:s=720x480:d={duration}:r={fps}",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        output_path
-    ]
-    subprocess.run(cmd, check=True, capture_output=True)
+    pipe = model["pipeline"]
+    import torch
+    result = pipe(
+        prompt=prompt,
+        num_videos_per_prompt=1,
+        num_inference_steps=num_inference_steps,
+        num_frames=num_frames,
+        guidance_scale=guidance_scale,
+        generator=torch.Generator(device="cuda").manual_seed(42),
+    )
+    frames = result.frames[0]
+    import subprocess, tempfile
+    with tempfile.TemporaryDirectory(prefix="cogvideo_") as tmpdir:
+        for i, frame in enumerate(frames):
+            frame.save(f"{tmpdir}/frame_{i:06d}.png")
+        subprocess.run([
+            "ffmpeg", "-y", "-framerate", "8",
+            "-i", f"{tmpdir}/frame_%06d.png",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+            "-pix_fmt", "yuv420p", output_path
+        ], check=True, capture_output=True)
+    logger.info(f"Video saved: {output_path}")
     return output_path

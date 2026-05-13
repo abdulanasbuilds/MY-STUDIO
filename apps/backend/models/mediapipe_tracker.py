@@ -134,8 +134,22 @@ def crop_smart_center(video_path: str, output_path: str) -> str:
     return output_path
 
 def detect_speaker_count(video_path: str) -> int:
-    """
-    Returns: 1 (single speaker) or 2 (two speakers)
-    Used to decide between track vs split_screen.
-    """
-    return 1  # Default to single speaker for now to ensure stability
+    import cv2
+    import torch
+    cap = cv2.VideoCapture(video_path)
+    total_persons = 0
+    frames_checked = 0
+    from ultralytics import YOLO
+    yolo = YOLO("yolov8n.pt")
+    while cap.isOpened() and frames_checked < 30:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        results = yolo(frame, classes=[0], verbose=False)
+        if results and len(results) > 0:
+            boxes = results[0].boxes
+            person_count = len(boxes)
+            total_persons = max(total_persons, person_count)
+        frames_checked += 1
+    cap.release()
+    return min(2, max(1, total_persons))

@@ -178,7 +178,7 @@ def run_documentary_pipeline(data: dict[str, Any]) -> str:
         process_video(
             input_path=raw_output_path,
             output_path=final_local_path,
-            options={"color_grade": True, "film_grain": True, "audio_warmth": True, "normalize": True}
+            options={"preset": "documentary"}
         )
 
         # ------------------------------------------------------------------
