@@ -10,34 +10,36 @@ app = modal.App("my-studio")
 secrets = modal.Secret.from_name("nexus-studio-secrets")
 
 # Image with FastAPI (needed for web endpoints)
-image = (
+# Web image (lightweight — fast cold start)
+web_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("ffmpeg", "git", "libgl1", "libglib2.0-0")
-    .pip_install("fastapi[standard]>=0.100.0")
-    .pip_install("torch>=2.0.0", "torchaudio>=2.0.0", "torchvision>=0.15.0", index_url="https://download.pytorch.org/whl/cu121")
     .pip_install(
+        "fastapi[standard]>=0.100.0",
         "pydantic>=2.5.0",
         "supabase>=2.0.0",
         "cloudinary>=1.36.0",
         "httpx>=0.27.0",
         "numpy>=1.24.0",
-        "Pillow>=10.0.0",
         "google-generativeai>=0.7.0",
-        "yt-dlp>=2024.0.0",
-        "scenedetect[opencv]>=0.6.0",
         "tqdm>=4.66.0",
-        "transformers>=4.36.0",
-        "diffusers>=0.24.0",
-        "accelerate>=0.24.0",
-        "safetensors>=0.4.0",
-        "sentencepiece>=0.1.99",
-        "librosa>=0.10.0",
-        "soundfile>=0.12.0",
-        "moviepy>=1.0.3",
-        "opencv-python>=4.8.0",
-        "scipy>=1.11.0",
-        "mediapipe>=0.10.0",
-        "ultralytics>=8.0.0",
+    )
+)
+
+# GPU image (heavy — used only for inference)
+gpu_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("ffmpeg", "git", "libgl1", "libglib2.0-0")
+    .pip_install("torch>=2.0.0", "torchaudio>=2.0.0", "torchvision>=0.15.0", index_url="https://download.pytorch.org/whl/cu121")
+    .pip_install(
+        "numpy>=1.24.0", "Pillow>=10.0.0", "scipy>=1.11.0",
+        "transformers>=4.36.0", "diffusers>=0.24.0", "accelerate>=0.24.0",
+        "safetensors>=0.4.0", "sentencepiece>=0.1.99",
+        "librosa>=0.10.0", "soundfile>=0.12.0",
+        "opencv-python>=4.8.0", "moviepy>=1.0.3",
+        "mediapipe>=0.10.0", "ultralytics>=8.0.0",
+        "google-generativeai>=0.7.0", "yt-dlp>=2024.0.0",
+        "scenedetect[opencv]>=0.6.0", "httpx>=0.27.0",
+        "cloudinary>=1.36.0", "supabase>=2.0.0", "pydantic>=2.5.0",
     )
 )
 
@@ -227,7 +229,7 @@ async def generate_edit(request: Request):
     asyncio.create_task(apply_edit_sequence(data))
     return {"accepted": True, "job_id": data["job_id"]}
 
-@app.function(image=image, secrets=[secrets])
+@app.function(image=web_image, secrets=[secrets], container_idle_timeout=300)
 @modal.asgi_app()
 def fastapi_app():
     return web_app
