@@ -13,42 +13,34 @@ secrets = modal.Secret.from_name("nexus-studio-secrets")
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "git", "libgl1", "libglib2.0-0")
+    .pip_install("fastapi[standard]>=0.100.0", "torch>=2.0.0", "torchaudio>=2.0.0", "torchvision>=0.15.0", index_url="https://download.pytorch.org/whl/cu121")
     .pip_install(
-        "fastapi[standard]==0.115.6",
-        "pydantic==2.9.2",
-        "supabase==2.9.1",
-        "cloudinary==1.41.0",
-        "httpx==0.27.2",
-        "moviepy==1.0.3",
-        "opencv-python-headless==4.10.0.84",
-        "yt-dlp==2024.11.4",
-        "scenedetect[opencv]==0.6.4",
-        "librosa==0.10.2",
-        "soundfile==0.12.1",
-        "matchering==2.0.6",
-        "transformers==4.46.3",
-        "diffusers==0.31.0",
-        "accelerate==1.1.1",
-        "safetensors==0.4.5",
-        "sentencepiece==0.2.0",
-        "google-generativeai==0.8.3",
-        "numpy==1.26.4",
-        "scipy==1.14.1",
-        "Pillow==10.4.0",
-        "trafilatura==1.12.2",
-        "newspaper4k==0.9.3.1",
-        "firecrawl-py==1.4.0",
-        "mediapipe==0.10.18",
-        "ultralytics==8.3.32",
-        "tqdm==4.67.0",
+        "pydantic>=2.5.0",
+        "supabase>=2.0.0",
+        "cloudinary>=1.36.0",
+        "httpx>=0.27.0",
+        "numpy>=1.24.0",
+        "Pillow>=10.0.0",
+        "google-generativeai>=0.7.0",
+        "yt-dlp>=2024.0.0",
+        "scenedetect[opencv]>=0.6.0",
+        "tqdm>=4.66.0",
+        "transformers>=4.36.0",
+        "diffusers>=0.24.0",
+        "accelerate>=0.24.0",
+        "safetensors>=0.4.0",
+        "sentencepiece>=0.1.99",
+        "librosa>=0.10.0",
+        "soundfile>=0.12.0",
+        "moviepy>=1.0.3",
+        "opencv-python>=4.8.0",
+        "scipy>=1.11.0",
+        "mediapipe>=0.10.0",
+        "ultralytics>=8.0.0",
     )
 )
 
-# GPU image (extends base with PyTorch)
-gpu_image = image.pip_install(
-    "torch==2.4.1", "torchaudio==2.4.1", "torchvision==0.19.1",
-    index_url="https://download.pytorch.org/whl/cu121",
-)
+
 
 # All model volumes
 vol_hunyuan_avatar = modal.Volume.from_name("my-studio-hunyuan-avatar", create_if_missing=True)
