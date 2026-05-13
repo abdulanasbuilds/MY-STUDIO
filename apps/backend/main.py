@@ -13,7 +13,8 @@ secrets = modal.Secret.from_name("nexus-studio-secrets")
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "git", "libgl1", "libglib2.0-0")
-    .pip_install("fastapi[standard]>=0.100.0", "torch>=2.0.0", "torchaudio>=2.0.0", "torchvision>=0.15.0", index_url="https://download.pytorch.org/whl/cu121")
+    .pip_install("fastapi[standard]>=0.100.0")
+    .pip_install("torch>=2.0.0", "torchaudio>=2.0.0", "torchvision>=0.15.0", index_url="https://download.pytorch.org/whl/cu121")
     .pip_install(
         "pydantic>=2.5.0",
         "supabase>=2.0.0",
