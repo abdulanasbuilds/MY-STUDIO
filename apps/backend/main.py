@@ -61,6 +61,7 @@ image = (
         "ultralytics==8.3.32",
         # Utilities
         "tqdm==4.67.0",
+        "fastapi[standard]==0.115.6",
     )
 )
 
