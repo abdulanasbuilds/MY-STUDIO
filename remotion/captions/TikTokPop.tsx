@@ -1,55 +1,29 @@
-// MY STUDIO — TikTokPop
-// PURPOSE: Pop-in animation per word caption style (TikTok viral style)
+import { useCurrentFrame, useVideoConfig, spring } from 'remotion';
 
-interface Word {
-  text: string;
-  start: number;
-  end: number;
-}
+interface Word { word: string; start: number; end: number; }
+interface Props { words: Word[]; videoPath: string; }
 
-interface TikTokPopProps {
-  words: Word[];
-  currentTime: number;
-}
-
-export const TikTokPop: React.FC<TikTokPopProps> = ({ words, currentTime }) => {
+export function TikTokPop({ words }: Props) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const currentTime = frame / fps;
+  
+  const currentWord = words.find(w => currentTime >= w.start && currentTime <= w.end);
+  
+  if (!currentWord) return null;
+  
+  const wordFrame = (currentTime - currentWord.start) * fps;
+  const scale = spring({ fps, frame: wordFrame, config: { damping: 12 } });
+  
   return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: '20%',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        textAlign: 'center',
-        width: '85%',
-      }}
-    >
-      {words.map((word, index) => {
-        const isVisible = currentTime >= word.start;
-        const isActive = currentTime >= word.start && currentTime <= word.end;
-        const timeSinceStart = currentTime - word.start;
-        const scale = isActive && timeSinceStart < 0.15 ? 1.3 : 1.0;
-
-        return (
-          <span
-            key={index}
-            style={{
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 800,
-              fontSize: '44px',
-              color: isActive ? '#FF3B5C' : '#FFFFFF',
-              textShadow: '2px 2px 4px rgba(0, 0, 0, 0.9)',
-              marginRight: '6px',
-              display: 'inline-block',
-              opacity: isVisible ? 1 : 0,
-              transform: `scale(${scale})`,
-              transition: 'transform 0.15s ease-out, opacity 0.1s ease',
-            }}
-          >
-            {word.text}
-          </span>
-        );
-      })}
+    <div style={{ position: 'absolute', bottom: '25%', width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <span style={{ 
+            fontFamily: 'system-ui, sans-serif', fontSize: 80, fontWeight: 900, color: '#FFFFFF',
+            textShadow: '0px 4px 10px rgba(0,0,0,0.5)', WebkitTextStroke: '2px black',
+            transform: `scale(${scale}) rotate(${Math.random() * 6 - 3}deg)`,
+        }}>
+          {currentWord.word}
+        </span>
     </div>
   );
-};
+}

@@ -1,108 +1,82 @@
 # MY STUDIO — content_remixer.py
-# PURPOSE: Analyze viral videos and generate remix scripts
-# CONNECTS TO: remix_pipeline.py
-# GPU: CPU (uses Gemini API)
-
-import logging
+import os
 import json
-from typing import Any
+import google.generativeai as genai
 
-logger = logging.getLogger("my-studio")
-
-
-def analyze_viral_video(
-    transcript: str,
-    job_id: str,
-) -> dict[str, Any]:
-    """Analyze a viral video transcript to extract its structure and hooks.
-
-    Uses Gemini API to understand what makes the video effective,
-    extracting structure, hooks, pacing, and themes.
-
-    Args:
-        transcript: Full transcript of the viral video.
-        job_id: Job ID for status tracking.
-
-    Returns:
-        Dictionary containing the analysis.
-    """
-    logger.info(f"[{job_id}] Analyzing viral video transcript ({len(transcript)} chars)")
-
-    # In production: Call Gemini API
-    # For now, simulate the analysis response
+def analyze_viral_video(video_url: str, job_id: str) -> dict:
+    """Download and deeply analyze why a video went viral."""
+    import tempfile, subprocess
+    from db import update_job_status
     
-    return {
-        "hook": "Strong pattern interrupt in first 3s followed by a controversial statement.",
-        "structure": [
-            {"start": 0, "end": 3, "purpose": "Hook", "description": "Grabs attention"},
-            {"start": 3, "end": 15, "purpose": "Setup", "description": "Establishes context"},
-            {"start": 15, "end": 45, "purpose": "Body", "description": "Delivers core value"},
-            {"start": 45, "end": 60, "purpose": "Payoff", "description": "Resolves tension + CTA"}
-        ],
-        "pacing": "Fast-paced, average 2 seconds per cut",
-        "themes": ["Productivity", "AI Tools", "Time Management"],
-        "emotional_arc": "Curiosity -> Tension -> Relief/Aha moment",
-        "engagement_techniques": ["Text overlays", "B-roll cutaways", "Sound effects on transitions"],
-        "transcript": transcript
-    }
-
-
-def generate_remix_script(
-    analysis: dict[str, Any],
-    user_niche: str,
-    user_audience: str,
-    remix_goal: str,
-    target_platform: str,
-    job_id: str,
-) -> dict[str, Any]:
-    """Generate a remix script based on viral video analysis.
-
-    Takes the analysis of a viral video and creates a new script
-    that adapts its successful elements to the user's niche and voice.
-
-    Args:
-        analysis: Output from analyze_viral_video().
-        user_niche: The user's content niche (e.g. "fitness").
-        user_audience: Target audience description.
-        remix_goal: What the user wants to achieve (same_topic, extract_structure, etc).
-        target_platform: Target platform (tiktok, youtube, etc).
-        job_id: Job ID.
-
-    Returns:
-        Dictionary containing the generated remix script.
-    """
-    logger.info(f"[{job_id}] Generating remix script for niche: {user_niche}")
-
-    # In production: Call Gemini API to generate the script
-    # based on the analysis and user parameters.
-    # For now, simulate the output
-
-    title = f"The ultimate {user_niche} hack you've been missing"
+    temp_dir = f"/tmp/nexus/remix_{job_id}"
+    os.makedirs(temp_dir, exist_ok=True)
     
-    return {
-        "title": title,
-        "hook": "Stop scrolling! If you care about " + user_niche + ", you need to hear this.",
-        "scenes": [
-            {
-                "narration": "Stop scrolling! If you care about " + user_niche + ", you need to hear this.",
-                "visual_direction": "Close up, energetic expression, pointing at camera.",
-                "duration": 3,
-                "notes": "Fast zoom effect"
-            },
-            {
-                "narration": "Most people get it completely wrong. They think it's about X, but it's actually about Y.",
-                "visual_direction": "Split screen or side-by-side comparison graphic.",
-                "duration": 5,
-                "notes": "Pop sound effect on graphic appearance"
-            },
-            {
-                "narration": "Here's the exact framework I use to get results every single time.",
-                "visual_direction": "Walking or dynamic movement to keep visual interest.",
-                "duration": 4,
-                "notes": "Text overlay with framework name"
-            }
-        ],
-        "cta": "Save this video so you don't forget it, and drop a follow for more daily " + user_niche + " tips.",
-        "hashtags": [f"#{user_niche.replace(' ', '')}", "#tips", "#creator", "#strategy"],
-        "thumbnail_prompt": f"A highly engaging youtube thumbnail about {user_niche}, bold text, high contrast, cinematic lighting, 8k resolution"
-    }
+    update_job_status(job_id, "processing", "downloading", 10)
+    video_path = f"{temp_dir}/source.mp4"
+    subprocess.run(["yt-dlp", "-f", "best[ext=mp4]", "-o", video_path, "--quiet", video_url], check=True)
+    
+    update_job_status(job_id, "processing", "transcribing", 25)
+    import whisperx
+    model = whisperx.load_model("large-v3", device="cuda", compute_type="float16", download_root="/models/whisper/")
+    audio = whisperx.load_audio(video_path)
+    result = model.transcribe(audio, batch_size=16)
+    
+    full_transcript = " ".join([w["word"] for seg in result["segments"] for w in seg.get("words", [])])
+    
+    update_job_status(job_id, "processing", "analyzing_audio", 40)
+    import librosa
+    y, sr = librosa.load(video_path, sr=None)
+    duration = librosa.get_duration(y=y, sr=sr)
+    
+    update_job_status(job_id, "processing", "generating_analysis", 70)
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    model_ai = genai.GenerativeModel("gemini-1.5-pro")
+    
+    why_prompt = f"""
+You are a viral content strategist. Analyze why this video went viral.
+FULL TRANSCRIPT: {full_transcript[:3000]}
+Duration: {duration:.0f} seconds
+
+Return ONLY valid JSON (no markdown):
+{{
+  "why_it_worked": "2-3 sentence explanation",
+  "hook_type": "question|shock|story",
+  "story_arc": "PAS|AIDA",
+  "hook_first_words": "exact first 7 words",
+  "viral_score_estimate": 0.85
+}}
+"""
+    try:
+        resp = model_ai.generate_content(why_prompt).text.strip()
+        analysis = json.loads(resp[7:-3] if resp.startswith("```json") else resp)
+    except:
+        analysis = {
+            "why_it_worked": "Strong opening hook",
+            "hook_type": "unknown", "story_arc": "unknown",
+            "hook_first_words": full_transcript[:40], "viral_score_estimate": 0.6
+        }
+    
+    import shutil
+    shutil.rmtree(temp_dir, ignore_errors=True)
+    update_job_status(job_id, "processing", "analysis_complete", 85)
+    
+    return {"analysis": analysis, "transcript_preview": full_transcript[:500], "duration_seconds": duration}
+
+def generate_remix_scripts(analysis: dict, user_niche: str, user_audience: str, user_voice: str, remix_goal: str, target_platform: str, target_duration: int, job_id: str) -> dict:
+    from db import update_job_status
+    update_job_status(job_id, "processing", "writing_scripts", 90)
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    model = genai.GenerativeModel("gemini-1.5-pro")
+    
+    base_prompt = f"""
+ORIGINAL VIDEO ANALYSIS: {analysis['analysis'].get('why_it_worked', '')}
+CREATOR CONTEXT:
+Niche: {user_niche}, Audience: {user_audience}, Voice: {user_voice}
+Goal: {remix_goal}
+Write ONLY the script words to speak aloud. No headers.
+"""
+    scripts = {}
+    scripts["v1"] = model.generate_content(base_prompt).text.strip()
+    scripts["v2"] = model.generate_content(base_prompt + "\nMake this 30% shorter.").text.strip()
+    scripts["v3"] = model.generate_content(base_prompt + "\nProfessional LinkedIn angle.").text.strip()
+    return scripts

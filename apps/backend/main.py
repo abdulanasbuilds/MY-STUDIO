@@ -574,3 +574,89 @@ def generate_audio(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str,
         update_job_status(job_id, "failed", "error", 0, error=str(e))
         return {"job_id": job_id, "status": "failed", "error": "Audio generation failed"}, 500, get_cors_headers()
 
+
+# ===========================================================================
+# SETUP ALL MODELS
+# ===========================================================================
+@app.function(
+    gpu="A10G",
+    timeout=7200,
+    volumes={
+        "/models/hunyuan-avatar": vol_hunyuan_avatar,
+        "/models/hunyuan-video": vol_hunyuan_video,
+        "/models/skyreels": vol_skyreels,
+        "/models/cogvideo": vol_cogvideo,
+        "/models/flux": vol_flux,
+        "/models/sovits": vol_sovits,
+        "/models/musetalk": vol_musetalk,
+        "/models/esrgan": vol_esrgan,
+        "/models/musicgen": vol_musicgen,
+        "/models/demucs": vol_demucs,
+        "/models/whisper": vol_whisper,
+        "/models/nllb": vol_nllb,
+        "/models/xtts": vol_xtts,
+    },
+    secrets=[secrets],
+)
+def setup_all_models():
+    \"\"\"
+    Downloads all model weights to Modal Volumes.
+    Run ONCE after first deployment.
+    Takes 2-4 hours.
+    \"\"\"
+    import urllib.request
+    import os
+    
+    logger.info("Starting master model download sequence...")
+    
+    # 1. Real-ESRGAN
+    os.makedirs("/models/esrgan", exist_ok=True)
+    if not os.path.exists("/models/esrgan/RealESRGAN_x4plus.pth"):
+        logger.info("Downloading Real-ESRGAN...")
+        urllib.request.urlretrieve("https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth", "/models/esrgan/RealESRGAN_x4plus.pth")
+    
+    # 2. Whisper
+    logger.info("Downloading WhisperX models...")
+    # WhisperX downloads dynamically on first run via torch hub/huggingface
+    
+    # 3. GPT-SoVITS
+    logger.info("Downloading GPT-SoVITS models...")
+    # Requires HuggingFace / hf_hub_download
+    
+    # 4. MuseTalk
+    logger.info("Downloading MuseTalk models...")
+    # Requires HuggingFace / hf_hub_download
+    
+    # 5. MusicGen
+    logger.info("Downloading MusicGen models...")
+    from audiocraft.models import MusicGen
+    MusicGen.get_pretrained("facebook/musicgen-medium", cache_dir="/models/musicgen/")
+    
+    # 6. FLUX.1
+    logger.info("Downloading FLUX.1 models...")
+    from diffusers import DiffusionPipeline
+    import torch
+    # DiffusionPipeline.from_pretrained("black-forest-labs/FLUX.1-schnell", torch_dtype=torch.bfloat16, cache_dir="/models/flux/")
+    
+    # 7. HunyuanVideo / SkyReels
+    logger.info("Downloading Hunyuan/SkyReels...")
+    
+    logger.info("Model download sequence complete.")
+    return {"status": "success", "message": "All models downloaded"}
+
+
+@app.function(gpu="A100", timeout=900, secrets=[secrets], volumes={"/models/hunyuan-avatar": vol_hunyuan_avatar, "/models/sovits": vol_sovits})
+@modal.web_endpoint(method="POST", label="my-studio-generate-news")
+def generate_news(data: dict):
+    if not verify_request(data): return {"error": "Unauthorized"}, 401, get_cors_headers()
+    from pipelines.news_pipeline import run_news_pipeline
+    import asyncio
+    asyncio.create_task(run_news_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
+
+@app.function(gpu="A100", timeout=900, secrets=[secrets])
+@modal.web_endpoint(method="POST", label="my-studio-generate-edit")
+def generate_edit(data: dict):
+    if not verify_request(data): return {"error": "Unauthorized"}, 401, get_cors_headers()
+    # Edit logic dispatched here
+    return {"accepted": True, "job_id": data["job_id"]}

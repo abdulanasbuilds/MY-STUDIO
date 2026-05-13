@@ -1,82 +1,29 @@
-// MY STUDIO — BreakingNews
-// PURPOSE: Lower third caption with red accent bar (breaking news style)
+import { useCurrentFrame, useVideoConfig } from 'remotion';
 
-interface Word {
-  text: string;
-  start: number;
-  end: number;
-}
+interface Word { word: string; start: number; end: number; }
+interface Props { words: Word[]; videoPath: string; }
 
-interface BreakingNewsProps {
-  words: Word[];
-  currentTime: number;
-}
-
-export const BreakingNews: React.FC<BreakingNewsProps> = ({ words, currentTime }) => {
-  const visibleWords = words.filter(
-    (word) => currentTime >= word.start && currentTime <= word.end + 0.5
-  );
-
+export function BreakingNews({ words }: Props) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const currentTime = frame / fps;
+  
+  const lines = [];
+  for (let i = 0; i < words.length; i += 8) lines.push(words.slice(i, i + 8));
+  const currentLine = lines.find(line => line.some(w => currentTime >= w.start && currentTime <= w.end));
+  
+  if (!currentLine) return null;
+  
   return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: '10%',
-        left: '5%',
-        width: '90%',
-      }}
-    >
-      {/* Red accent bar */}
-      <div
-        style={{
-          backgroundColor: '#CC0000',
-          height: '4px',
-          width: '100%',
-          marginBottom: '0',
-        }}
-      />
-      {/* Caption area */}
-      <div
-        style={{
-          backgroundColor: 'rgba(0, 0, 0, 0.85)',
-          padding: '12px 20px',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: '#CC0000',
-            padding: '4px 12px',
-            marginRight: '16px',
-            flexShrink: 0,
-          }}
-        >
-          <span
-            style={{
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 800,
-              fontSize: '14px',
-              color: '#FFFFFF',
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-            }}
-          >
-            BREAKING
-          </span>
-        </div>
-        <span
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: 600,
-            fontSize: '28px',
-            color: '#FFFFFF',
-            letterSpacing: '0.3px',
-          }}
-        >
-          {visibleWords.map((word) => word.text).join(' ')}
+    <div style={{ position: 'absolute', bottom: '10%', left: '5%', width: '90%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ backgroundColor: '#cc0000', padding: '4px 16px', width: 'fit-content', color: 'white', fontWeight: 'bold', fontFamily: 'sans-serif', fontSize: 24, textTransform: 'uppercase' }}>
+        BREAKING NEWS
+      </div>
+      <div style={{ backgroundColor: 'white', padding: '16px 24px', borderLeft: '8px solid #cc0000', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+        <span style={{ fontFamily: 'sans-serif', fontSize: 48, color: 'black', fontWeight: 800 }}>
+          {currentLine.map(w => w.word).join(" ")}
         </span>
       </div>
     </div>
   );
-};
+}

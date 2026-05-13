@@ -1,49 +1,33 @@
-# MY STUDIO — models/filmaster.py
-# PURPOSE: FilMaster cinematic scene analysis
-# REFERENCE: filmaster-ai.github.io
-# CONNECTS TO: movie_pipeline.py, documentary_pipeline.py
-# GPU: CPU (uses Gemini API)
-
+# MY STUDIO — filmaster.py
 import logging
-import random
-from typing import Any
 
 logger = logging.getLogger("my-studio")
 
-
-def load_filmaster() -> dict[str, Any]:
-    """Initialize FilMaster analysis engine."""
-    logger.info("Loading FilMaster engine...")
-    return {"loaded": True}
-
-
-def analyze_scene(
-    scene_description: str,
-) -> dict[str, Any]:
-    """Analyze a scene description and return cinematic decisions.
-
-    Uses FilMaster to determine optimal camera angles, lighting,
-    composition, pacing, and mood.
-
-    Args:
-        scene_description: Text description of the scene.
-
-    Returns:
-        Dictionary containing cinematic decisions.
-    """
-    logger.info(f"FilMaster analyzing scene: {scene_description[:50]}...")
+def apply_cinematic_rhythm(scene_videos: list[str], script_analysis: dict, output_path: str) -> str:
+    """Assemble best takes in order with cinematic rhythm control."""
+    import os, subprocess, tempfile
     
-    # In production: calls Gemini API or local FilMaster logic
-    
-    angles = ["Wide Shot", "Medium Shot", "Close Up", "Extreme Close Up", "Low Angle", "High Angle"]
-    lighting = ["Cinematic, dramatic shadows", "Soft diffused light", "Neon cyberpunk", "Natural golden hour", "High contrast, harsh light"]
-    movements = ["Static tripod", "Slow pan", "Dolly tracking", "Handheld dynamic", "Drone sweep"]
-    
-    return {
-        "camera_angle": random.choice(angles),
-        "lighting": random.choice(lighting),
-        "camera_movement": random.choice(movements),
-        "composition": "Rule of thirds, centered subject.",
-        "pacing": "Moderate buildup",
-        "mood": "Intense and atmospheric"
+    concat_list = tempfile.mktemp(suffix=".txt")
+    with open(concat_list, "w") as f:
+        for clip in scene_videos:
+            f.write(f"file '{clip}'\n")
+            
+    cmd = [
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+        "-i", concat_list, "-c", "copy", output_path
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+    os.remove(concat_list)
+    return output_path
+
+def analyze_cinematic_reference(genre: str, style: str) -> dict:
+    """Get cinematic reference parameters for genre/style."""
+    cinematic_profiles = {
+        "action": {"avg_shot_duration": 2.5, "cut_rhythm": "fast", "color_temperature": "cool", "camera_movement": "handheld", "recommended_lut": "action_teal"},
+        "drama": {"avg_shot_duration": 6.0, "cut_rhythm": "slow", "color_temperature": "warm", "camera_movement": "steadicam", "recommended_lut": "warm_cinematic"},
+        "documentary": {"avg_shot_duration": 4.0, "cut_rhythm": "medium", "color_temperature": "neutral", "camera_movement": "static", "recommended_lut": "desaturated_real"},
+        "comedy": {"avg_shot_duration": 3.5, "cut_rhythm": "medium", "color_temperature": "warm", "camera_movement": "steadicam", "recommended_lut": "punchy_bright"},
+        "horror": {"avg_shot_duration": 3.0, "cut_rhythm": "fast", "color_temperature": "cool", "camera_movement": "handheld", "recommended_lut": "horror_desaturated"},
+        "scifi": {"avg_shot_duration": 3.5, "cut_rhythm": "medium", "color_temperature": "cool", "camera_movement": "steadicam", "recommended_lut": "scifi_teal_orange"}
     }
+    return cinematic_profiles.get(style, cinematic_profiles["drama"])

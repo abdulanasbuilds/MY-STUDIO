@@ -1,81 +1,57 @@
 # MY STUDIO — intelligence/edit_interpreter.py
-# PURPOSE: Natural language edit command interpretation
-# CONNECTS TO: clipper_pipeline.py, movie_pipeline.py, main.py generate_edit
-# GPU: CPU (uses Gemini API)
-
-import logging
+import google.generativeai as genai
+import os
 import json
-from typing import Any
 
-logger = logging.getLogger("my-studio")
+def interpret_edit_command(command: str, video_path: str, current_state: dict) -> dict:
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    
+    prompt = f"""
+Translate natural language to edit operation.
+Command: {command}
 
+Available operations: trim_start, trim_end, speed, zoom, color, audio, caption, cut, stabilize, remove_background, slow_motion, fade.
+Return ONLY valid JSON:
+{{
+  "operation": "operation_name",
+  "params": {{"param1": "value"}},
+  "description": "What this does in plain English",
+  "reversible": true
+}}
+"""
+    try:
+        res = model.generate_content(prompt).text.strip()
+        return json.loads(res[7:-3] if res.startswith("```json") else res)
+    except Exception:
+        return {"operation": "noop", "params": {}, "description": "Failed to parse", "reversible": True}
 
-def interpret_edit_command(
-    command: str,
-    video_metadata: dict[str, Any],
-) -> list[dict[str, Any]]:
-    """Interpret a natural language edit command into structured operations.
+def execute_edit_operation(video_path: str, operation: dict, output_path: str) -> str:
+    import subprocess
+    op = operation.get("operation")
+    params = operation.get("params", {})
+    
+    if op == "trim_start":
+        subprocess.run(["ffmpeg", "-y", "-ss", str(params.get("start", 0)), "-i", video_path, "-c", "copy", output_path], check=True)
+    elif op == "trim_end":
+        subprocess.run(["ffmpeg", "-y", "-i", video_path, "-to", str(params.get("end", 10)), "-c", "copy", output_path], check=True)
+    elif op == "speed":
+        factor = params.get("factor", 1.5)
+        subprocess.run(["ffmpeg", "-y", "-i", video_path, "-filter_complex", f"[0:v]setpts={1/factor}*PTS[v];[0:a]atempo={factor}[a]", "-map", "[v]", "-map", "[a]", output_path], check=True)
+    elif op == "color":
+        subprocess.run(["ffmpeg", "-y", "-i", video_path, "-vf", "eq=contrast=1.1:saturation=1.2", "-c:a", "copy", output_path], check=True)
+    else:
+        # Pass through
+        subprocess.run(["cp", video_path, output_path])
+    
+    return output_path
 
-    Parses user commands like "cut the first 10 seconds" or "add zoom
-    on the speaker at 0:45" into a sequence of executable edit operations.
-
-    Args:
-        command: Natural language edit instruction from the user.
-        video_metadata: Metadata about the video being edited.
-
-    Returns:
-        List of operation dicts.
-    """
-    logger.info(f"Interpreting edit command: '{command}'")
-
-    # In production: Use Gemini API to parse natural language to structured JSON
-    # For now: We do some basic heuristic parsing for demonstration
-    command_lower = command.lower()
-    operations = []
-
-    if "cut" in command_lower or "trim" in command_lower:
-        # Very naive heuristic
-        operations.append({
-            "operation": "cut",
-            "params": {"action": "remove"},
-            "start_time": 0.0,
-            "end_time": 5.0,  # Simulated parsing
-            "priority": 10
-        })
-
-    if "zoom" in command_lower:
-        operations.append({
-            "operation": "zoom",
-            "params": {"scale": 1.5, "target": "center"},
-            "start_time": 5.0,
-            "end_time": 10.0,
-            "priority": 20
-        })
-
-    if "color" in command_lower or "bright" in command_lower:
-        operations.append({
-            "operation": "color_grade",
-            "params": {"brightness": 1.2, "contrast": 1.1},
-            "start_time": None,
-            "end_time": None,
-            "priority": 30
-        })
-        
-    if "music" in command_lower:
-        operations.append({
-            "operation": "add_music",
-            "params": {"volume": 0.3},
-            "start_time": 0.0,
-            "end_time": None,
-            "priority": 40
-        })
-
-    # Fallback operation
-    if not operations:
-         operations.append({
-            "operation": "noop",
-            "params": {"message": "Could not parse specific command"},
-            "priority": 0
-        })
-
-    return operations
+def apply_edit_sequence(video_path: str, operations: list[dict], output_path: str) -> str:
+    import shutil
+    current = video_path
+    for i, op in enumerate(operations):
+        out = f"/tmp/edit_step_{i}.mp4"
+        execute_edit_operation(current, op, out)
+        current = out
+    shutil.copy(current, output_path)
+    return output_path
