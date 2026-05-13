@@ -26,42 +26,34 @@ secrets = modal.Secret.from_name("nexus-studio-secrets")
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "git", "libgl1", "libglib2.0-0")
+    .pip_install("fastapi[standard]==0.115.6")
     .pip_install(
-        # Core
         "pydantic==2.9.2",
         "supabase==2.9.1",
         "cloudinary==1.41.0",
         "httpx==0.27.2",
-        # Video
         "moviepy==1.0.3",
         "opencv-python-headless==4.10.0.84",
         "yt-dlp==2024.11.4",
         "scenedetect[opencv]==0.6.4",
-        # Audio
         "librosa==0.10.2",
         "soundfile==0.12.1",
         "matchering==2.0.6",
-        # AI
         "transformers==4.46.3",
         "diffusers==0.31.0",
         "accelerate==1.1.1",
         "safetensors==0.4.5",
         "sentencepiece==0.2.0",
         "google-generativeai==0.8.3",
-        # Science
         "numpy==1.26.4",
         "scipy==1.14.1",
         "Pillow==10.4.0",
-        # Intelligence
         "trafilatura==1.12.2",
         "newspaper4k==0.9.3.1",
         "firecrawl-py==1.4.0",
-        # Face
         "mediapipe==0.10.18",
         "ultralytics==8.3.32",
-        # Utilities
         "tqdm==4.67.0",
-        "fastapi[standard]==0.115.6",
     )
 )
 
