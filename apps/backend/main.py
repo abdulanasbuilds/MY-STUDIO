@@ -18,7 +18,7 @@ app = modal.App("my-studio")
 # ---------------------------------------------------------------------------
 # Secrets
 # ---------------------------------------------------------------------------
-secrets = modal.Secret.from_name("my-studio-secrets")
+secrets = modal.Secret.from_name("nexus-studio-secrets")
 
 # ---------------------------------------------------------------------------
 # Container Image
@@ -108,7 +108,7 @@ from db import get_job, update_job_status
 # HEALTH CHECK
 # ===========================================================================
 @app.function(image=image, secrets=[secrets])
-@modal.web_endpoint(method="GET", label="my-studio-health")
+@modal.fastapi_endpoint(method="GET", label="my-studio-health")
 def health() -> dict[str, str]:
     """Health check endpoint.
     
@@ -122,7 +122,7 @@ def health() -> dict[str, str]:
 # CORS PREFLIGHT HANDLER
 # ===========================================================================
 @app.function(image=image)
-@modal.web_endpoint(method="OPTIONS", label="my-studio-options")
+@modal.fastapi_endpoint(method="OPTIONS", label="my-studio-options")
 def options() -> tuple[dict[str, str], int, dict[str, str]]:
     """Handle CORS preflight requests for all endpoints.
     
@@ -136,7 +136,7 @@ def options() -> tuple[dict[str, str], int, dict[str, str]]:
 # JOB STATUS
 # ===========================================================================
 @app.function(image=image, secrets=[secrets])
-@modal.web_endpoint(method="GET", label="my-studio-status")
+@modal.fastapi_endpoint(method="GET", label="my-studio-status")
 def status(job_id: str) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Get the current status of a content generation job.
     
@@ -167,7 +167,7 @@ def status(job_id: str) -> tuple[dict[str, Any], int, dict[str, str]]:
         "/models/esrgan": vol_esrgan,
     },
 )
-@modal.web_endpoint(method="POST", label="my-studio-generate-avatar")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-avatar")
 def generate_avatar(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Generate an AI avatar video from script + voice + face.
     
@@ -212,7 +212,7 @@ def generate_avatar(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str
         "/models/musicgen": vol_musicgen,
     },
 )
-@modal.web_endpoint(method="POST", label="my-studio-generate-movie")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-movie")
 def generate_movie(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Generate a short film from a screenplay.
     
@@ -256,7 +256,7 @@ def generate_movie(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str,
         "/models/musicgen": vol_musicgen,
     },
 )
-@modal.web_endpoint(method="POST", label="my-studio-generate-documentary")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-documentary")
 def generate_documentary(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Generate a documentary from a topic/research.
     
@@ -298,7 +298,7 @@ def generate_documentary(data: dict[str, Any]) -> tuple[dict[str, Any], int, dic
         "/models/filmaster": vol_filmaster,
     },
 )
-@modal.web_endpoint(method="POST", label="my-studio-generate-clip")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-clip")
 def generate_clip(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Extract viral clips from long-form video.
     
@@ -341,7 +341,7 @@ def generate_clip(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, 
         "/models/whisper": vol_whisper,
     },
 )
-@modal.web_endpoint(method="POST", label="my-studio-generate-remix")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-remix")
 def generate_remix(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Remix a viral video with a new creative angle.
     
@@ -385,7 +385,7 @@ def generate_remix(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str,
         "/models/musetalk": vol_musetalk,
     },
 )
-@modal.web_endpoint(method="POST", label="my-studio-generate-dub")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-dub")
 def generate_dub(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Dub a video into another language with lip sync.
     
@@ -426,7 +426,7 @@ def generate_dub(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, s
         "/models/flux": vol_flux,
     },
 )
-@modal.web_endpoint(method="POST", label="my-studio-generate-thumbnail")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-thumbnail")
 def generate_thumbnail(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Generate a thumbnail image using FLUX.1.
     
@@ -467,7 +467,7 @@ def generate_thumbnail(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[
         "/models/sovits": vol_sovits,
     },
 )
-@modal.web_endpoint(method="POST", label="my-studio-clone-voice")
+@modal.fastapi_endpoint(method="POST", label="my-studio-clone-voice")
 def clone_voice(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Clone a voice from an audio sample using GPT-SoVITS.
     
@@ -505,7 +505,7 @@ def clone_voice(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, st
     secrets=[secrets],
     timeout=120,
 )
-@modal.web_endpoint(method="POST", label="my-studio-analyze-rival")
+@modal.fastapi_endpoint(method="POST", label="my-studio-analyze-rival")
 def analyze_rival(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Analyze a competitor's strategy.
     
@@ -546,7 +546,7 @@ def analyze_rival(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, 
         "/models/demucs": vol_demucs,
     },
 )
-@modal.web_endpoint(method="POST", label="my-studio-generate-audio")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-audio")
 def generate_audio(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
     """Process or generate audio.
     
@@ -599,11 +599,8 @@ def generate_audio(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str,
     secrets=[secrets],
 )
 def setup_all_models():
-    \"\"\"
-    Downloads all model weights to Modal Volumes.
-    Run ONCE after first deployment.
-    Takes 2-4 hours.
-    \"\"\"
+    """Downloads all model weights to Modal Volumes.
+    Run ONCE after first deployment. Takes 2-4 hours."""
     import urllib.request
     import os
     
@@ -646,7 +643,7 @@ def setup_all_models():
 
 
 @app.function(gpu="A100", timeout=900, secrets=[secrets], volumes={"/models/hunyuan-avatar": vol_hunyuan_avatar, "/models/sovits": vol_sovits})
-@modal.web_endpoint(method="POST", label="my-studio-generate-news")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-news")
 def generate_news(data: dict):
     if not verify_request(data): return {"error": "Unauthorized"}, 401, get_cors_headers()
     from pipelines.news_pipeline import run_news_pipeline
@@ -655,7 +652,7 @@ def generate_news(data: dict):
     return {"accepted": True, "job_id": data["job_id"]}
 
 @app.function(gpu="A100", timeout=900, secrets=[secrets])
-@modal.web_endpoint(method="POST", label="my-studio-generate-edit")
+@modal.fastapi_endpoint(method="POST", label="my-studio-generate-edit")
 def generate_edit(data: dict):
     if not verify_request(data): return {"error": "Unauthorized"}, 401, get_cors_headers()
     # Edit logic dispatched here

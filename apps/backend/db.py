@@ -5,19 +5,21 @@
 import os
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from supabase import create_client, Client
+if TYPE_CHECKING:
+    from supabase import Client
 
 logger = logging.getLogger("my-studio")
 
 
-def get_supabase() -> Client:
+def get_supabase():
     """Create and return a Supabase client using service role key.
     
     Returns:
         Supabase client with admin access (bypasses RLS).
     """
+    from supabase import create_client
     url = os.environ["SUPABASE_URL"]
     key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     return create_client(url, key)

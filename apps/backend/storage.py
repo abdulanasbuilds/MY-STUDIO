@@ -6,15 +6,14 @@ import os
 import logging
 from typing import Any
 
-import cloudinary
-import cloudinary.uploader
-import cloudinary.api
-
 logger = logging.getLogger("my-studio")
 
 
 def configure_cloudinary() -> None:
     """Configure Cloudinary with environment variables."""
+    import cloudinary
+    import cloudinary.uploader
+    import cloudinary.api
     cloudinary.config(
         cloud_name=os.environ["CLOUDINARY_CLOUD_NAME"],
         api_key=os.environ["CLOUDINARY_API_KEY"],

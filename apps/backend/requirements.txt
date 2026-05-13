@@ -62,5 +62,6 @@ firecrawl-py==1.4.0              # Web scraping API
 
 # Utilities
 httpx==0.27.2                    # HTTP client
+fastapi[standard]==0.115.6       # Web endpoint framework (required by Modal)
 python-dotenv==1.0.1             # Env var loading (dev only)
 tqdm==4.67.0                     # Progress bars
