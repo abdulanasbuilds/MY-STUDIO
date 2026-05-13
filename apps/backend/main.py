@@ -1,8 +1,4 @@
 # MY STUDIO — main.py
-# PURPOSE: Modal app definition, image config, volumes, secrets, and all web endpoints
-# CONNECTS TO: security.py, db.py, storage.py, all pipelines
-# DEPLOY: modal deploy apps/backend/main.py
-
 import logging
 from typing import Any
 
@@ -10,24 +6,15 @@ import modal
 
 logger = logging.getLogger("my-studio")
 
-# ---------------------------------------------------------------------------
-# Modal App
-# ---------------------------------------------------------------------------
 app = modal.App("my-studio")
-
-# ---------------------------------------------------------------------------
-# Secrets
-# ---------------------------------------------------------------------------
 secrets = modal.Secret.from_name("nexus-studio-secrets")
 
-# ---------------------------------------------------------------------------
-# Container Image
-# ---------------------------------------------------------------------------
+# Image with FastAPI (needed for web endpoints)
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "git", "libgl1", "libglib2.0-0")
-    .pip_install("fastapi[standard]==0.115.6")
     .pip_install(
+        "fastapi[standard]==0.115.6",
         "pydantic==2.9.2",
         "supabase==2.9.1",
         "cloudinary==1.41.0",
@@ -57,22 +44,13 @@ image = (
     )
 )
 
-# ---------------------------------------------------------------------------
-# GPU Image (extends base with PyTorch + CUDA)
-# ---------------------------------------------------------------------------
-gpu_image = (
-    image
-    .pip_install(
-        "torch==2.4.1",
-        "torchaudio==2.4.1",
-        "torchvision==0.19.1",
-        index_url="https://download.pytorch.org/whl/cu121",
-    )
+# GPU image (extends base with PyTorch)
+gpu_image = image.pip_install(
+    "torch==2.4.1", "torchaudio==2.4.1", "torchvision==0.19.1",
+    index_url="https://download.pytorch.org/whl/cu121",
 )
 
-# ---------------------------------------------------------------------------
-# Model Volumes — persistent storage for downloaded model weights
-# ---------------------------------------------------------------------------
+# All model volumes
 vol_hunyuan_avatar = modal.Volume.from_name("my-studio-hunyuan-avatar", create_if_missing=True)
 vol_hunyuan_video = modal.Volume.from_name("my-studio-hunyuan-video", create_if_missing=True)
 vol_skyreels = modal.Volume.from_name("my-studio-skyreels", create_if_missing=True)
@@ -90,563 +68,173 @@ vol_filmaster = modal.Volume.from_name("my-studio-filmaster", create_if_missing=
 vol_yolo = modal.Volume.from_name("my-studio-yolo", create_if_missing=True)
 vol_voicefixer = modal.Volume.from_name("my-studio-voicefixer", create_if_missing=True)
 
-# ---------------------------------------------------------------------------
-# Imports (lazy — only available inside Modal containers)
-# ---------------------------------------------------------------------------
+ALL_VOLUMES = {
+    "/models/hunyuan-avatar": vol_hunyuan_avatar,
+    "/models/hunyuan-video": vol_hunyuan_video,
+    "/models/skyreels": vol_skyreels,
+    "/models/cogvideo": vol_cogvideo,
+    "/models/flux": vol_flux,
+    "/models/sovits": vol_sovits,
+    "/models/musetalk": vol_musetalk,
+    "/models/esrgan": vol_esrgan,
+    "/models/musicgen": vol_musicgen,
+    "/models/demucs": vol_demucs,
+    "/models/whisper": vol_whisper,
+    "/models/nllb": vol_nllb,
+    "/models/xtts": vol_xtts,
+    "/models/filmaster": vol_filmaster,
+    "/models/yolo": vol_yolo,
+    "/models/voicefixer": vol_voicefixer,
+}
+
 from security import verify_request, get_cors_headers
 from db import get_job, update_job_status
 
+# ---- FastAPI web app ----
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
-# ===========================================================================
-# HEALTH CHECK
-# ===========================================================================
-@app.function(image=image, secrets=[secrets])
-@modal.fastapi_endpoint(method="GET", label="my-studio-health")
-def health() -> dict[str, str]:
-    """Health check endpoint.
-    
-    Returns:
-        Status, version, and app name.
-    """
+web_app = FastAPI()
+
+web_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@web_app.get("/health")
+async def health():
     return {"status": "ok", "version": "0.1.0", "app": "my-studio"}
 
-
-# ===========================================================================
-# CORS PREFLIGHT HANDLER
-# ===========================================================================
-@app.function(image=image)
-@modal.fastapi_endpoint(method="OPTIONS", label="my-studio-options")
-def options() -> tuple[dict[str, str], int, dict[str, str]]:
-    """Handle CORS preflight requests for all endpoints.
-    
-    Returns:
-        Empty body with CORS headers and 204 status.
-    """
-    return {}, 204, get_cors_headers()
-
-
-# ===========================================================================
-# JOB STATUS
-# ===========================================================================
-@app.function(image=image, secrets=[secrets])
-@modal.fastapi_endpoint(method="GET", label="my-studio-status")
-def status(job_id: str) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Get the current status of a content generation job.
-    
-    Args:
-        job_id: UUID of the job to check.
-    
-    Returns:
-        Job data with CORS headers, or 404 if not found.
-    """
+@web_app.get("/status/{job_id}")
+async def status(job_id: str):
     job = get_job(job_id)
-    if job is None:
-        return {"error": "Job not found"}, 404, get_cors_headers()
-    return job, 200, get_cors_headers()
+    if not job:
+        return {"error": "Not found"}, 404
+    return job
 
-
-# ===========================================================================
-# GENERATE — Avatar (M01)
-# ===========================================================================
-@app.function(
-    image=gpu_image,
-    secrets=[secrets],
-    gpu="A100",
-    timeout=600,
-    volumes={
-        "/models/hunyuan-avatar": vol_hunyuan_avatar,
-        "/models/sovits": vol_sovits,
-        "/models/musetalk": vol_musetalk,
-        "/models/esrgan": vol_esrgan,
-    },
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-avatar")
-def generate_avatar(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Generate an AI avatar video from script + voice + face.
-    
-    Pipeline: GPT-SoVITS voice clone -> HunyuanVideo-Avatar -> MuseTalk lip sync -> Real-ESRGAN enhance
-    
-    Args:
-        data: Request containing script, avatar_id, voice_id, quality_mode, job_id.
-    
-    Returns:
-        Accepted response with job_id, or 401 if unauthorized.
-    """
+@web_app.post("/generate/avatar")
+async def generate_avatar(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from pipelines.avatar_pipeline import run_avatar_pipeline
-        output_url = run_avatar_pipeline(data)
-        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
-        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Avatar generation failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Generation failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from pipelines.avatar_pipeline import run_avatar_pipeline
+    import asyncio
+    asyncio.create_task(run_avatar_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
 
-
-# ===========================================================================
-# GENERATE — Movie (M02)
-# ===========================================================================
-@app.function(
-    image=gpu_image,
-    secrets=[secrets],
-    gpu="A100",
-    timeout=900,
-    volumes={
-        "/models/hunyuan-video": vol_hunyuan_video,
-        "/models/skyreels": vol_skyreels,
-        "/models/cogvideo": vol_cogvideo,
-        "/models/flux": vol_flux,
-        "/models/musicgen": vol_musicgen,
-    },
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-movie")
-def generate_movie(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Generate a short film from a screenplay.
-    
-    Pipeline: Gemini screenplay -> FLUX.1 storyboard -> HunyuanVideo/SkyReels scenes -> MusicGen score -> FFmpeg assembly
-    
-    Args:
-        data: Request containing screenplay, style, duration, quality_mode, job_id.
-    
-    Returns:
-        Accepted response with job_id.
-    """
+@web_app.post("/generate/movie")
+async def generate_movie(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from pipelines.movie_pipeline import run_movie_pipeline
-        output_url = run_movie_pipeline(data)
-        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
-        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Movie generation failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Generation failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from pipelines.movie_pipeline import run_movie_pipeline
+    import asyncio
+    asyncio.create_task(run_movie_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
 
-
-# ===========================================================================
-# GENERATE — Documentary (M03)
-# ===========================================================================
-@app.function(
-    image=gpu_image,
-    secrets=[secrets],
-    gpu="A100",
-    timeout=900,
-    volumes={
-        "/models/hunyuan-video": vol_hunyuan_video,
-        "/models/flux": vol_flux,
-        "/models/whisper": vol_whisper,
-        "/models/musicgen": vol_musicgen,
-    },
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-documentary")
-def generate_documentary(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Generate a documentary from a topic/research.
-    
-    Pipeline: Gemini research -> Gemini narration -> FLUX.1 visuals -> HunyuanVideo scenes -> assembly
-    
-    Args:
-        data: Request containing topic, style, duration, voice, job_id.
-    
-    Returns:
-        Accepted response with job_id.
-    """
+@web_app.post("/generate/documentary")
+async def generate_documentary(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from pipelines.documentary_pipeline import run_documentary_pipeline
-        output_url = run_documentary_pipeline(data)
-        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
-        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Documentary generation failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Generation failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from pipelines.documentary_pipeline import run_documentary_pipeline
+    import asyncio
+    asyncio.create_task(run_documentary_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
 
-
-# ===========================================================================
-# GENERATE — Clip (M04 Clipper)
-# ===========================================================================
-@app.function(
-    image=gpu_image,
-    secrets=[secrets],
-    gpu="T4",
-    timeout=300,
-    volumes={
-        "/models/whisper": vol_whisper,
-        "/models/filmaster": vol_filmaster,
-    },
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-clip")
-def generate_clip(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Extract viral clips from long-form video.
-    
-    Pipeline: yt-dlp download -> Whisper transcription -> Gemini scoring -> FFmpeg extraction -> vertical crop
-    
-    Args:
-        data: Request containing video_url, platform, min_duration, max_duration, job_id.
-    
-    Returns:
-        Accepted response with job_id.
-    """
+@web_app.post("/generate/clip")
+async def generate_clip(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from pipelines.clipper_pipeline import run_clipper_pipeline
-        output_url = run_clipper_pipeline(data)
-        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
-        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Clipper generation failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Generation failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from pipelines.clipper_pipeline import run_clipper_pipeline
+    import asyncio
+    asyncio.create_task(run_clipper_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
 
-
-# ===========================================================================
-# GENERATE — Remix (M06)
-# ===========================================================================
-@app.function(
-    image=gpu_image,
-    secrets=[secrets],
-    gpu="A100",
-    timeout=600,
-    volumes={
-        "/models/hunyuan-video": vol_hunyuan_video,
-        "/models/flux": vol_flux,
-        "/models/whisper": vol_whisper,
-    },
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-remix")
-def generate_remix(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Remix a viral video with a new creative angle.
-    
-    Pipeline: Analyze viral video -> Gemini remix script -> Generate new visuals -> Assembly
-    
-    Args:
-        data: Request containing source_url, remix_angle, style, job_id.
-    
-    Returns:
-        Accepted response with job_id.
-    """
+@web_app.post("/generate/remix")
+async def generate_remix(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from pipelines.remix_pipeline import run_remix_pipeline
-        output_url = run_remix_pipeline(data)
-        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
-        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Remix generation failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Generation failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from pipelines.remix_pipeline import run_remix_pipeline
+    import asyncio
+    asyncio.create_task(run_remix_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
 
-
-# ===========================================================================
-# GENERATE — Dub (M15)
-# ===========================================================================
-@app.function(
-    image=gpu_image,
-    secrets=[secrets],
-    gpu="A10G",
-    timeout=600,
-    volumes={
-        "/models/whisper": vol_whisper,
-        "/models/nllb": vol_nllb,
-        "/models/xtts": vol_xtts,
-        "/models/musetalk": vol_musetalk,
-    },
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-dub")
-def generate_dub(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Dub a video into another language with lip sync.
-    
-    Pipeline: Whisper transcription -> NLLB translation -> XTTS-v2 voice clone -> MuseTalk lip sync
-    
-    Args:
-        data: Request containing video_url, target_language, voice_mode, job_id.
-    
-    Returns:
-        Accepted response with job_id.
-    """
+@web_app.post("/generate/dub")
+async def generate_dub(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from pipelines.dubbing_pipeline import run_dubbing_pipeline
-        output_url = run_dubbing_pipeline(data)
-        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
-        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Dubbing generation failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Generation failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from pipelines.dubbing_pipeline import run_dubbing_pipeline
+    import asyncio
+    asyncio.create_task(run_dubbing_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
 
-
-# ===========================================================================
-# GENERATE — Thumbnail (M10)
-# ===========================================================================
-@app.function(
-    image=gpu_image,
-    secrets=[secrets],
-    gpu="A10G",
-    timeout=120,
-    volumes={
-        "/models/flux": vol_flux,
-    },
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-thumbnail")
-def generate_thumbnail(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Generate a thumbnail image using FLUX.1.
-    
-    Pipeline: FLUX.1 image generation -> Cloudinary upload
-    
-    Args:
-        data: Request containing prompt, style, aspect_ratio, job_id.
-    
-    Returns:
-        Accepted response with job_id.
-    """
+@web_app.post("/generate/thumbnail")
+async def generate_thumbnail(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from pipelines.thumbnail_pipeline import run_thumbnail_pipeline
-        output_url = run_thumbnail_pipeline(data)
-        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
-        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Thumbnail generation failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Generation failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from pipelines.thumbnail_pipeline import run_thumbnail_pipeline
+    import asyncio
+    asyncio.create_task(run_thumbnail_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
 
-
-# ===========================================================================
-# CLONE VOICE
-# ===========================================================================
-@app.function(
-    image=gpu_image,
-    secrets=[secrets],
-    gpu="A10G",
-    timeout=300,
-    volumes={
-        "/models/sovits": vol_sovits,
-    },
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-clone-voice")
-def clone_voice(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Clone a voice from an audio sample using GPT-SoVITS.
-    
-    Args:
-        data: Request containing audio_url, voice_name, user_id, job_id.
-    
-    Returns:
-        Accepted response with job_id and voice_id.
-    """
+@web_app.post("/generate/audio")
+async def generate_audio(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from models.sovits import clone_voice as do_clone
-        voice_id = do_clone(
-            audio_url=data["audio_url"],
-            voice_name=data["voice_name"],
-            user_id=data["user_id"],
-        )
-        update_job_status(job_id, "complete", "done", 100, metadata={"voice_id": voice_id})
-        return {"job_id": job_id, "status": "complete", "voice_id": voice_id}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Voice cloning failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Voice cloning failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from pipelines.audio_pipeline import run_audio_pipeline
+    import asyncio
+    asyncio.create_task(run_audio_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
 
-# ===========================================================================
-# SPY (M14)
-# ===========================================================================
-@app.function(
-    image=image,
-    secrets=[secrets],
-    timeout=120,
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-analyze-rival")
-def analyze_rival(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Analyze a competitor's strategy.
-    
-    Pipeline: Firecrawl scraping -> Gemini analysis
-    
-    Args:
-        data: Request containing platform, profile_url, name, job_id.
-    
-    Returns:
-        Accepted response with job_id.
-    """
+@web_app.post("/voice/clone")
+async def clone_voice(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from intelligence.competitor_spy import analyze_competitor
-        output_url = analyze_competitor(data)
-        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
-        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Rival analysis failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Analysis failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from models.sovits import clone_voice, load_sovits
+    model = load_sovits()
+    clone_voice(data["audio_url"], data["user_id"], model=model)
+    return {"status": "accepted"}
 
-# ===========================================================================
-# AUDIO (M09)
-# ===========================================================================
-@app.function(
-    image=gpu_image,
-    secrets=[secrets],
-    gpu="A10G",
-    timeout=600,
-    volumes={
-        "/models/musicgen": vol_musicgen,
-        "/models/demucs": vol_demucs,
-    },
-)
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-audio")
-def generate_audio(data: dict[str, Any]) -> tuple[dict[str, Any], int, dict[str, str]]:
-    """Process or generate audio.
-    
-    Pipeline: MusicGen -> Demucs -> Matchering
-    
-    Args:
-        data: Request containing mode, prompt, audio_url, job_id.
-    
-    Returns:
-        Accepted response with job_id.
-    """
+@web_app.post("/rivals/analyze")
+async def analyze_rival(request: Request):
+    data = await request.json()
     if not verify_request(data):
-        return {"error": "Unauthorized"}, 401, get_cors_headers()
-    
-    job_id: str = data["job_id"]
-    update_job_status(job_id, "processing", "initializing", 0)
-    
-    try:
-        from pipelines.audio_pipeline import run_audio_pipeline
-        output_url = run_audio_pipeline(data)
-        update_job_status(job_id, "complete", "done", 100, output_url=output_url)
-        return {"job_id": job_id, "status": "complete", "output_url": output_url}, 200, get_cors_headers()
-    except Exception as e:
-        logger.error(f"Audio generation failed: {e}")
-        update_job_status(job_id, "failed", "error", 0, error=str(e))
-        return {"job_id": job_id, "status": "failed", "error": "Audio generation failed"}, 500, get_cors_headers()
+        return {"error": "Unauthorized"}, 401
+    from intelligence.competitor_spy import run_competitor_spy_pipeline
+    import asyncio
+    asyncio.create_task(run_competitor_spy_pipeline(data))
+    return {"accepted": True, "job_id": data["job_id"]}
 
-
-# ===========================================================================
-# SETUP ALL MODELS
-# ===========================================================================
-@app.function(
-    gpu="A10G",
-    timeout=7200,
-    volumes={
-        "/models/hunyuan-avatar": vol_hunyuan_avatar,
-        "/models/hunyuan-video": vol_hunyuan_video,
-        "/models/skyreels": vol_skyreels,
-        "/models/cogvideo": vol_cogvideo,
-        "/models/flux": vol_flux,
-        "/models/sovits": vol_sovits,
-        "/models/musetalk": vol_musetalk,
-        "/models/esrgan": vol_esrgan,
-        "/models/musicgen": vol_musicgen,
-        "/models/demucs": vol_demucs,
-        "/models/whisper": vol_whisper,
-        "/models/nllb": vol_nllb,
-        "/models/xtts": vol_xtts,
-    },
-    secrets=[secrets],
-)
-def setup_all_models():
-    """Downloads all model weights to Modal Volumes.
-    Run ONCE after first deployment. Takes 2-4 hours."""
-    import urllib.request
-    import os
-    
-    logger.info("Starting master model download sequence...")
-    
-    # 1. Real-ESRGAN
-    os.makedirs("/models/esrgan", exist_ok=True)
-    if not os.path.exists("/models/esrgan/RealESRGAN_x4plus.pth"):
-        logger.info("Downloading Real-ESRGAN...")
-        urllib.request.urlretrieve("https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth", "/models/esrgan/RealESRGAN_x4plus.pth")
-    
-    # 2. Whisper
-    logger.info("Downloading WhisperX models...")
-    # WhisperX downloads dynamically on first run via torch hub/huggingface
-    
-    # 3. GPT-SoVITS
-    logger.info("Downloading GPT-SoVITS models...")
-    # Requires HuggingFace / hf_hub_download
-    
-    # 4. MuseTalk
-    logger.info("Downloading MuseTalk models...")
-    # Requires HuggingFace / hf_hub_download
-    
-    # 5. MusicGen
-    logger.info("Downloading MusicGen models...")
-    from audiocraft.models import MusicGen
-    MusicGen.get_pretrained("facebook/musicgen-medium", cache_dir="/models/musicgen/")
-    
-    # 6. FLUX.1
-    logger.info("Downloading FLUX.1 models...")
-    from diffusers import DiffusionPipeline
-    import torch
-    # DiffusionPipeline.from_pretrained("black-forest-labs/FLUX.1-schnell", torch_dtype=torch.bfloat16, cache_dir="/models/flux/")
-    
-    # 7. HunyuanVideo / SkyReels
-    logger.info("Downloading Hunyuan/SkyReels...")
-    
-    logger.info("Model download sequence complete.")
-    return {"status": "success", "message": "All models downloaded"}
-
-
-@app.function(gpu="A100", timeout=900, secrets=[secrets], volumes={"/models/hunyuan-avatar": vol_hunyuan_avatar, "/models/sovits": vol_sovits})
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-news")
-def generate_news(data: dict):
-    if not verify_request(data): return {"error": "Unauthorized"}, 401, get_cors_headers()
+@web_app.post("/generate/news")
+async def generate_news(request: Request):
+    data = await request.json()
+    if not verify_request(data):
+        return {"error": "Unauthorized"}, 401
     from pipelines.news_pipeline import run_news_pipeline
     import asyncio
     asyncio.create_task(run_news_pipeline(data))
     return {"accepted": True, "job_id": data["job_id"]}
 
-@app.function(gpu="A100", timeout=900, secrets=[secrets])
-@modal.fastapi_endpoint(method="POST", label="my-studio-generate-edit")
-def generate_edit(data: dict):
-    if not verify_request(data): return {"error": "Unauthorized"}, 401, get_cors_headers()
-    # Edit logic dispatched here
+@web_app.post("/generate/edit")
+async def generate_edit(request: Request):
+    data = await request.json()
+    if not verify_request(data):
+        return {"error": "Unauthorized"}, 401
+    from intelligence.edit_interpreter import apply_edit_sequence
+    import asyncio
+    asyncio.create_task(apply_edit_sequence(data))
     return {"accepted": True, "job_id": data["job_id"]}
+
+@app.function(image=image, secrets=[secrets])
+@modal.asgi_app()
+def fastapi_app():
+    return web_app
