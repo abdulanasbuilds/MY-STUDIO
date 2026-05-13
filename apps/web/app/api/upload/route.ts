@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getUser } from '@/lib/supabase';
+import { getUser } from '@/lib/supabase-server';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -61,3 +61,4 @@ export async function POST(request: NextRequest) {
     publicId: stubPublicId,
   });
 }
+

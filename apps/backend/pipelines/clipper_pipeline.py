@@ -5,23 +5,23 @@ from db import update_job_status, get_supabase
 from storage import upload_video
 from intelligence.viral_scorer import find_viral_moments
 
-def run_clipper_pipeline(data: dict) -> list[dict]:
+def run_clipper_pipeline(data: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Main clipper pipeline.
     Returns list of clip metadata dicts with Cloudinary URLs.
     """
-    job_id = data["job_id"]
-    user_id = data["user_id"]
-    source_url = data["source_url"]
-    settings = data.get("settings", {})
-    max_clips = settings.get("max_clips", 5)
-    min_duration = settings.get("min_duration", 30)
-    max_duration = settings.get("max_duration", 90)
-    platforms = settings.get("platforms", ["tiktok"])
-    caption_style = settings.get("caption_style", "hormozi")
-    crop_mode = settings.get("crop_mode", "track")
-    hook_overlay = settings.get("hook_overlay", True)
-    custom_instructions = data.get("custom_instructions")
+    job_id: str = data["job_id"]
+    user_id: str = data["user_id"]
+    source_url: str = data["source_url"]
+    settings: dict[str, Any] = data.get("settings", {})
+    max_clips: int = settings.get("max_clips", 5)
+    min_duration: int = settings.get("min_duration", 30)
+    max_duration: int = settings.get("max_duration", 90)
+    platforms: list[str] = settings.get("platforms", ["tiktok"])
+    caption_style: str = settings.get("caption_style", "hormozi")
+    crop_mode: str = settings.get("crop_mode", "track")
+    hook_overlay: bool = settings.get("hook_overlay", True)
+    custom_instructions: str | None = data.get("custom_instructions")
     
     temp_dir = f"/tmp/nexus/clip_{job_id}"
     os.makedirs(temp_dir, exist_ok=True)
@@ -62,7 +62,7 @@ def run_clipper_pipeline(data: dict) -> list[dict]:
         )
         
         if not moments:
-            update_job_status(job_id, "failed", "No viral moments found in video")
+            update_job_status(job_id, "failed", "no_moments_found", 0, error="No viral moments found in video")
             return []
         
         # STEP 6: Generate each clip
@@ -94,12 +94,15 @@ def run_clipper_pipeline(data: dict) -> list[dict]:
         return clips
         
     except Exception as e:
-        update_job_status(job_id, "failed", str(e)[:500])
+        update_job_status(job_id, "failed", "error", 0, error=str(e)[:500])
         raise
     finally:
         for f in temp_files:
-            try: os.remove(f)
-            except: pass
+            try:
+                if os.path.isfile(f):
+                    os.remove(f)
+            except:
+                pass
 
 def download_video(url: str, temp_dir: str) -> str:
     """Download video using yt-dlp. Returns local file path."""

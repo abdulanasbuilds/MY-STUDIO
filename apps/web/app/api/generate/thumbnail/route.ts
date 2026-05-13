@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { FEATURES } from '@my-studio/config/feature-flags';
-import { getUser, createServerSupabaseClient } from '@/lib/supabase';
+import { getUser, createServerSupabaseClient } from '@/lib/supabase-server';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 const thumbnailSchema = z.object({
@@ -97,3 +97,4 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ jobId }, { status: 202 });
 }
+

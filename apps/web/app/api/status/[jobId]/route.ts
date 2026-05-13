@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getUser, createServerSupabaseClient } from '@/lib/supabase';
+import { getUser, createServerSupabaseClient } from '@/lib/supabase-server';
 
 const paramsSchema = z.object({
   jobId: z.string().uuid(),

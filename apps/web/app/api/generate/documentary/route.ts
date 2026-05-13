@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateDocumentarySchema } from '@my-studio/validators/schemas';
 import { FEATURES } from '@my-studio/config/feature-flags';
 
-import { getUser, createServerSupabaseClient } from '@/lib/supabase';
+import { getUser, createServerSupabaseClient } from '@/lib/supabase-server';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
@@ -97,3 +97,4 @@ export async function POST(request: NextRequest) {
   // 7. Return job ID immediately
   return NextResponse.json({ jobId }, { status: 202 });
 }
+
