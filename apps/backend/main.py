@@ -229,7 +229,7 @@ async def generate_edit(request: Request):
     asyncio.create_task(apply_edit_sequence(data))
     return {"accepted": True, "job_id": data["job_id"]}
 
-@app.function(image=web_image, secrets=[secrets], container_idle_timeout=300)
+@app.function(image=web_image, secrets=[secrets])
 @modal.asgi_app()
 def fastapi_app():
     return web_app
