@@ -1,4 +1,4 @@
--- MY STUDIO — 004: Rival Schema
+c-- MY STUDIO — 004: Rival Schema
 -- PURPOSE: Tables for Rival Intelligence (M06) and Competitor Spy (M14)
 -- Tables: rival_profiles, rival_posts, content_remixes
 
