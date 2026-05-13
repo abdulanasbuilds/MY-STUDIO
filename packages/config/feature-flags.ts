@@ -22,7 +22,7 @@ export const FEATURES = {
   VIRAL_DB: process.env.FEATURE_VIRAL_DB === 'true',
   SPY: process.env.FEATURE_SPY === 'true',
   DUBBING: process.env.FEATURE_DUBBING === 'true',
-  HUMAN_FEEL: process.env.FEATURE_HUMAN_FEEL === 'true',
+  HUMAN_FEEL: process.env.FEATURE_HUMAN_FEEL !== 'false',
 } as const;
 
 /** Union of all module flag names. */

@@ -27,7 +27,6 @@ import {
   Menu,
   X,
   Wand2,
-  Lock,
 } from 'lucide-react';
 
 import { cn } from '@/lib/cn';
@@ -139,23 +138,10 @@ export function StudioShell({ featureFlags, children }: StudioShellProps) {
                 <ul className="space-y-1">
                   {items.map((item) => {
                     const enabled = featureFlags[item.key] ?? false;
+                    if (!enabled) return null; // Completely hides disabled features
+
                     const active = isActive(item.href);
                     const Icon = item.icon;
-
-                    if (!enabled) {
-                      return (
-                        <li key={item.key}>
-                          <div
-                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-text-secondary/40 cursor-not-allowed"
-                            title={`${item.label} — Coming Soon`}
-                          >
-                            <Icon className="h-4 w-4" />
-                            <span className="flex-1 text-sm">{item.label}</span>
-                            <Lock className="h-3 w-3" />
-                          </div>
-                        </li>
-                      );
-                    }
 
                     return (
                       <li key={item.key}>

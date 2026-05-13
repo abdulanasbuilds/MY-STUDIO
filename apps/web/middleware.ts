@@ -48,6 +48,9 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Pass pathname to layout for feature flag 404 check (set on all non-redirect responses)
+  response.headers.set('x-pathname', pathname);
+
   // Redirect unauthenticated users on protected (studio) routes to /login
   if (!user && pathname !== '/login') {
     const loginUrl = new URL('/login', request.url);
