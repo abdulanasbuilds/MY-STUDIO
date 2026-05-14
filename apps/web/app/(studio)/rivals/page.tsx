@@ -74,6 +74,7 @@ const MOCK_ALERTS = [
 
 export default function Page() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
   const [rivals, setRivals] = useState(MOCK_RIVALS);
   
   const filteredRivals = rivals.filter(r => 
@@ -95,6 +96,18 @@ export default function Page() {
     return `${Math.floor(hours / 24)}d ago`;
   };
 
+  const refreshRival = (id: string) => {
+    setRivals(prev => prev.map(r => 
+      r.id === id ? { ...r, last_checked_at: new Date().toISOString() } : r
+    ));
+  };
+
+  const deleteRival = (id: string) => {
+    if (confirm('Are you sure you want to remove this rival?')) {
+      setRivals(prev => prev.filter(r => r.id !== id));
+    }
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       {/* Header */}
@@ -105,7 +118,7 @@ export default function Page() {
             Monitor your competitors automatically and get alerted when they post viral content.
           </p>
         </div>
-        <Button variant="primary">
+        <Button variant="primary" onClick={() => setShowAddModal(true)}>
           <Plus className="mr-2 h-4 w-4" /> Add Rival
         </Button>
       </div>
@@ -178,10 +191,18 @@ export default function Page() {
                   </div>
                   
                   <div className="col-span-1 flex justify-end gap-2">
-                    <button className="text-text-secondary hover:text-primary transition-colors p-1" title="Refresh data">
+                    <button 
+                      onClick={() => refreshRival(rival.id)}
+                      className="text-text-secondary hover:text-primary transition-colors p-1" 
+                      title="Refresh data"
+                    >
                       <RefreshCw className="h-4 w-4" />
                     </button>
-                    <button className="text-text-secondary hover:text-error transition-colors p-1" title="Remove">
+                    <button 
+                      onClick={() => deleteRival(rival.id)}
+                      className="text-text-secondary hover:text-error transition-colors p-1" 
+                      title="Remove"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -251,6 +272,47 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      {/* Add Rival Modal Placeholder */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="rounded-xl border border-border bg-surface-1 p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-text-primary mb-4">Add New Rival</h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g., Tech Influencer X"
+                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-text-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Platform</label>
+                <select className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-text-primary">
+                  <option value="">Select platform</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="twitter">Twitter</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="tiktok">TikTok</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">Profile URL</label>
+                <input 
+                  type="url" 
+                  placeholder="https://youtube.com/@username"
+                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-text-primary"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => setShowAddModal(false)} className="flex-1">Add Rival</Button>
+              <Button variant="ghost" onClick={() => setShowAddModal(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

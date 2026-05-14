@@ -122,6 +122,11 @@ export default function Page() {
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
+  // UI state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
   // Polling cleanup ref
   const pollerRef = useRef<{ stop: () => void } | null>(null);
 
@@ -363,6 +368,7 @@ export default function Page() {
               <button
                 className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-primary hover:bg-primary/10 transition-colors"
                 title="Create a new avatar"
+                onClick={() => setShowCreateModal(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
                 New
@@ -381,11 +387,17 @@ export default function Page() {
                   Upload a face photo and clone your voice to create your first avatar.
                 </p>
                 <div className="mt-4 flex flex-col gap-2">
-                  <button className="flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-text-primary hover:bg-surface-2/80 transition-colors">
+                  <button 
+                    onClick={() => setShowUploadModal(true)}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-text-primary hover:bg-surface-2/80 transition-colors"
+                  >
                     <Upload className="h-4 w-4" />
                     Upload Face Photo
                   </button>
-                  <button className="flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-text-primary hover:bg-surface-2/80 transition-colors">
+                  <button 
+                    onClick={() => setShowVoiceModal(true)}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-text-primary hover:bg-surface-2/80 transition-colors"
+                  >
                     <Mic className="h-4 w-4" />
                     Clone Voice
                   </button>
@@ -556,6 +568,54 @@ export default function Page() {
           )}
         </div>
       </div>
+
+      {/* Placeholder modals - replace with full modal components */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="rounded-xl border border-border bg-surface-1 p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-text-primary mb-4">Create New Avatar</h3>
+            <p className="text-text-secondary mb-6">Avatar creation modal coming soon. Upload a face photo to get started.</p>
+            <div className="flex gap-3">
+              <Button onClick={() => setShowUploadModal(true)} className="flex-1">Upload Face Photo</Button>
+              <Button variant="ghost" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="rounded-xl border border-border bg-surface-1 p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-text-primary mb-4">Upload Face Photo</h3>
+            <p className="text-text-secondary mb-6">Drag & drop or click to upload. Use a clear, front-facing photo.</p>
+            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center mb-4">
+              <Upload className="h-8 w-8 mx-auto text-text-secondary/50 mb-2" />
+              <p className="text-sm text-text-secondary">Click to upload or drag file here</p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => { setShowUploadModal(false); setShowCreateModal(false); }} className="flex-1">Create Avatar</Button>
+              <Button variant="ghost" onClick={() => setShowUploadModal(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVoiceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="rounded-xl border border-border bg-surface-1 p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-text-primary mb-4">Clone Your Voice</h3>
+            <p className="text-text-secondary mb-6">Upload 10-60 seconds of clear audio to clone your voice.</p>
+            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center mb-4">
+              <Mic className="h-8 w-8 mx-auto text-text-secondary/50 mb-2" />
+              <p className="text-sm text-text-secondary">Click to record or upload audio</p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => setShowVoiceModal(false)} variant="secondary" className="flex-1">Start Recording</Button>
+              <Button variant="ghost" onClick={() => setShowVoiceModal(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
