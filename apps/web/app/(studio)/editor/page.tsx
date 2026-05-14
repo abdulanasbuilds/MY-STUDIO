@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Scissors, Sparkles, RefreshCw, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
-export function EditorPage() {
+export default function Page() {
   const [url, setUrl] = useState('');
   const [command, setCommand] = useState('');
   
@@ -67,4 +67,4 @@ export function EditorPage() {
   );
 }
 
-export { EditorPage as default };
+;

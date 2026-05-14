@@ -80,7 +80,7 @@ const STEP_MAP: Record<string, number> = {
 // Component
 // ---------------------------------------------------------------------------
 
-export function RemixerPage() {
+export default function Page() {
   const [url, setUrl] = useState('');
   const [userNiche, setUserNiche] = useState('');
   const [userAudience, setUserAudience] = useState('');
@@ -477,4 +477,4 @@ export function RemixerPage() {
   );
 }
 
-export { RemixerPage as default };
+;

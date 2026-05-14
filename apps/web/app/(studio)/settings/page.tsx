@@ -7,7 +7,7 @@ import { User, Shield, CreditCard, Sparkles, Sliders, CheckCircle } from 'lucide
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
 
-export function SettingsPage() {
+export default function Page() {
   const [activeTab, setActiveTab] = useState('human-feel');
   const [hfEnabled, setHfEnabled] = useState(true);
   const [preset, setPreset] = useState('social_media');
@@ -132,4 +132,4 @@ export function SettingsPage() {
   );
 }
 
-export { SettingsPage as default };
+;

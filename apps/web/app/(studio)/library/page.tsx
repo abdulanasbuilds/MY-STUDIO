@@ -1,7 +1,7 @@
 // MY STUDIO — Content Library Page
 // PURPOSE: Central hub for all generated content
 
-export function LibraryPage() {
+export default function Page() {
   return (
     <div className="space-y-6">
       <div>
@@ -20,4 +20,4 @@ export function LibraryPage() {
   );
 }
 
-export { LibraryPage as default };
+;

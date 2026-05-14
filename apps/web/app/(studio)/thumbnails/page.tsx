@@ -12,7 +12,7 @@ import { StepProgress } from '@/components/ui/StepProgress';
 type StyleMode = 'photorealistic' | 'illustration' | 'graphic' | 'minimal';
 type PlatformMode = 'youtube' | 'tiktok' | 'instagram' | 'twitter';
 
-export function ThumbnailsPage() {
+export default function Page() {
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState<StyleMode>('photorealistic');
   const [platform, setPlatform] = useState<PlatformMode>('youtube');
@@ -150,4 +150,4 @@ export function ThumbnailsPage() {
   );
 }
 
-export { ThumbnailsPage as default };
+;

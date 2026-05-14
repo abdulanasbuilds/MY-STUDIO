@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Newspaper, Rss, Bot, Play, Settings2, Plus, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
-export function NewsPage() {
+export default function Page() {
   const [rssUrl, setRssUrl] = useState('');
   
   return (
@@ -132,4 +132,4 @@ export function NewsPage() {
   );
 }
 
-export { NewsPage as default };
+;

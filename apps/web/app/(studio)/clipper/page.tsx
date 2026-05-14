@@ -85,7 +85,7 @@ const STEP_MAP: Record<string, number> = {
 // Component
 // ---------------------------------------------------------------------------
 
-export function ClipperPage() {
+export default function Page() {
   const [url, setUrl] = useState('');
   const [cropMode, setCropMode] = useState<CropMode>('smart_center');
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>('tiktok');
@@ -401,4 +401,4 @@ export function ClipperPage() {
   );
 }
 
-export { ClipperPage as default };
+;

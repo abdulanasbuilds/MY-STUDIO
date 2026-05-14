@@ -81,7 +81,7 @@ const STEP_MAP: Record<string, number> = {
 // Component
 // ---------------------------------------------------------------------------
 
-export function DubbingPage() {
+export default function Page() {
   const [url, setUrl] = useState('');
   const [targetLang, setTargetLang] = useState('es');
   const [syncLips, setSyncLips] = useState(true);
@@ -384,4 +384,4 @@ export function DubbingPage() {
   );
 }
 
-export { DubbingPage as default };
+;

@@ -10,7 +10,7 @@ import { createBrowserClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
-export function LoginPage() {
+export default function Page() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -97,4 +97,4 @@ export function LoginPage() {
   );
 }
 
-export { LoginPage as default };
+;

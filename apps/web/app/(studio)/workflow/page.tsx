@@ -7,7 +7,7 @@ import { Play, Save, Settings2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { NodeCanvas } from '@/components/workflow/NodeCanvas';
 
-export function WorkflowPage() {
+export default function Page() {
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] max-w-[1400px] mx-auto">
       {/* Header */}
@@ -97,4 +97,4 @@ export function WorkflowPage() {
   );
 }
 
-export { WorkflowPage as default };
+;

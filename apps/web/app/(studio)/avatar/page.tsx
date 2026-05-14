@@ -105,7 +105,7 @@ const STEP_MAP: Record<string, number> = {
 // Component
 // ---------------------------------------------------------------------------
 
-export function AvatarPage() {
+export default function Page() {
   // Form state
   const [script, setScript] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarProfile | null>(null);
@@ -560,4 +560,4 @@ export function AvatarPage() {
   );
 }
 
-export { AvatarPage as default };
+;

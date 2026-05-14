@@ -81,7 +81,7 @@ const STEP_MAP: Record<string, number> = {
 // Component
 // ---------------------------------------------------------------------------
 
-export function MoviePage() {
+export default function Page() {
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState<StyleMode>('cinematic');
   const [duration, setDuration] = useState<DurationMode>('short');
@@ -363,4 +363,4 @@ export function MoviePage() {
   );
 }
 
-export { MoviePage as default };
+;

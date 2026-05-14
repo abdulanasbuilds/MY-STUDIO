@@ -50,7 +50,7 @@ function buildFeatureFlags(): Record<string, boolean> {
   };
 }
 
-export async function StudioLayout({ children }: { children: React.ReactNode }) {
+export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const headersList = await headers();
   const pathname = headersList.get('x-pathname') ?? headersList.get('x-invoke-path') ?? '';
 
@@ -68,4 +68,4 @@ export async function StudioLayout({ children }: { children: React.ReactNode }) 
   return <StudioShell featureFlags={featureFlags}>{children}</StudioShell>;
 }
 
-export { StudioLayout as default };
+;

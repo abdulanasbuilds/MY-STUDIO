@@ -68,7 +68,7 @@ const STEP_MAP: Record<string, number> = {
 // Component
 // ---------------------------------------------------------------------------
 
-export function SpyPage() {
+export default function Page() {
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
   const [platform, setPlatform] = useState<Platform>('youtube');
@@ -412,4 +412,4 @@ export function SpyPage() {
   );
 }
 
-export { SpyPage as default };
+;

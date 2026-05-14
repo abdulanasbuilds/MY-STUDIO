@@ -72,7 +72,7 @@ const MOCK_ALERTS = [
   },
 ];
 
-export function RivalsPage() {
+export default function Page() {
   const [searchQuery, setSearchQuery] = useState('');
   const [rivals, setRivals] = useState(MOCK_RIVALS);
   
@@ -255,4 +255,4 @@ export function RivalsPage() {
   );
 }
 
-export { RivalsPage as default };
+;

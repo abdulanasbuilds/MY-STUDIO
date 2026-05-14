@@ -8,7 +8,7 @@ import { RefreshCw, Download, Play, Wand2, Link as LinkIcon } from 'lucide-react
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/Button';
 
-export function RemixPage() {
+export default function Page() {
   const [url, setUrl] = useState('');
   
   return (
@@ -60,4 +60,4 @@ export function RemixPage() {
   );
 }
 
-export { RemixPage as default };
+;

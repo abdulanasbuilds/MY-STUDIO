@@ -78,7 +78,7 @@ const STEP_MAP_SEPARATE: Record<string, number> = {
 // Component
 // ---------------------------------------------------------------------------
 
-export function AudioPage() {
+export default function Page() {
   const [mode, setMode] = useState<AudioMode>('generate');
   const [prompt, setPrompt] = useState('');
   const [url, setUrl] = useState('');
@@ -365,4 +365,4 @@ export function AudioPage() {
   );
 }
 
-export { AudioPage as default };
+;

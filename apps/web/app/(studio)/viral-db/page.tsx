@@ -71,7 +71,7 @@ const MOCK_VIRAL_DATA = [
   },
 ];
 
-export function ViralDBPage() {
+export default function Page() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeNiche, setActiveNiche] = useState<string>('all');
   
@@ -235,4 +235,4 @@ export function ViralDBPage() {
   );
 }
 
-export { ViralDBPage as default };
+;
