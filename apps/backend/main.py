@@ -229,6 +229,20 @@ async def generate_edit(request: Request):
     asyncio.create_task(apply_edit_sequence(data))
     return {"accepted": True, "job_id": data["job_id"]}
 
+# Simple WSGI health app (no FastAPI needed)
+def wsgi_app(environ, start_response):
+    if environ["PATH_INFO"] == "/health":
+        start_response("200 OK", [("Content-Type", "application/json")])
+        return [b'{"status":"ok","version":"0.1.0","app":"my-studio"}']
+    start_response("404 Not Found", [("Content-Type", "application/json")])
+    return [b'{"error":"not found"}']
+
+@app.function(image=web_image, secrets=[secrets])
+@modal.wsgi_app()
+def health_check():
+    return wsgi_app
+
+# Main FastAPI ASGI app for all generation endpoints
 @app.function(image=web_image, secrets=[secrets])
 @modal.asgi_app()
 def fastapi_app():
