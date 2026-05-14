@@ -18,6 +18,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Skip auth if env vars not set (local dev / setup mode)
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
@@ -43,15 +48,15 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // Refresh session — IMPORTANT: use getUser() not getSession()
+  // Refresh session
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Pass pathname to layout for feature flag 404 check (set on all non-redirect responses)
+  // Pass pathname to layout for feature flag 404 check
   response.headers.set('x-pathname', pathname);
 
-  // Redirect unauthenticated users on protected (studio) routes to /login
+  // Redirect unauthenticated users on protected routes to /login
   if (!user && pathname !== '/login') {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirectTo', pathname);
