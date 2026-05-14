@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 6. Forward to Modal backend (fire-and-forget)
-  const modalBaseUrl = process.env.MODAL_BASE_URL;
+  const modalBaseUrl = process.env.MODAL_BASE_URL || "https://abdulanassofficial--my-studio-fastapi-app.modal.run";
   const modalToken = process.env.API_SECRET_TOKEN || process.env.MODAL_API_SECRET_TOKEN;
 
   if (modalBaseUrl && modalToken) {
