@@ -11,6 +11,7 @@ web_image = (
 gpu_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "git", "libgl1", "libglib2.0-0")
+    .pip_install("fastapi[standard]>=0.100.0")
     .pip_install("torch>=2.0.0", "torchaudio>=2.0.0", "torchvision>=0.15.0", index_url="https://download.pytorch.org/whl/cu121")
     .pip_install("numpy>=1.24.0", "Pillow>=10.0.0", "scipy>=1.11.0", "transformers>=4.36.0", "diffusers>=0.24.0", "accelerate>=0.24.0", "safetensors>=0.4.0", "librosa>=0.10.0", "soundfile>=0.12.0", "opencv-python>=4.8.0", "google-generativeai>=0.7.0", "httpx>=0.27.0", "cloudinary>=1.36.0", "supabase>=2.0.0", "pydantic>=2.5.0")
 )
@@ -155,7 +156,7 @@ async def clone_voice(request: Request):
     spk = clone_voice(data["audio_url"], data["user_id"])
     return {"status": "accepted", "speaker_id": spk}
 
-@app.function(gpu="A10G", timeout=7200, volumes=ALL_VOLUMES, secrets=[secrets])
+@app.function(image=web_image, timeout=7200, volumes=ALL_VOLUMES, secrets=[secrets])
 def setup_all_models():
     import os, urllib.request, logging
     logger = logging.getLogger("my-studio")
