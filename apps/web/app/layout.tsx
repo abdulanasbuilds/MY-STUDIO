@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   description: 'AI content creation platform — 16 modules, 50+ open source AI models, one platform.',
 };
 
-export function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className={`${inter.className} bg-bg text-text-primary antialiased`}>
@@ -21,5 +21,3 @@ export function RootLayout({ children }: { children: React.ReactNode }) {
     </html>
   );
 }
-
-export { RootLayout as default };
