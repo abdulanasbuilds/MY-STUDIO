@@ -28,9 +28,6 @@ ALL_VOLUMES = {
     "/models/sovits": vol_sovits,
 }
 
-from security import verify_request, get_cors_headers
-from db import get_job, update_job_status
-
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -43,6 +40,7 @@ async def health():
 
 @web_app.get("/status/{job_id}")
 async def status(job_id: str):
+    from db import get_job
     job = get_job(job_id)
     if not job:
         return {"error": "Not found"}, 404
@@ -156,6 +154,25 @@ async def clone_voice(request: Request):
     from models.sovits import clone_voice, load_sovits
     spk = clone_voice(data["audio_url"], data["user_id"])
     return {"status": "accepted", "speaker_id": spk}
+
+@app.function(gpu="A10G", timeout=7200, volumes=ALL_VOLUMES, secrets=[secrets])
+def setup_all_models():
+    import os, urllib.request, logging
+    logger = logging.getLogger("my-studio")
+    logger.info("Starting model download...")
+    models = [
+        ("Real-ESRGAN", "/models/esrgan/RealESRGAN_x4plus.pth", "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"),
+        ("YOLOv8n", "/models/yolo/yolov8n.pt", "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt"),
+    ]
+    for name, path, url in models:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if not os.path.exists(path):
+            logger.info(f"Downloading {name}...")
+            urllib.request.urlretrieve(url, path)
+            logger.info(f"{name} done.")
+        else:
+            logger.info(f"{name} already exists.")
+    logger.info("Models downloaded. Add more models to the list above.")
 
 @app.function(image=web_image, secrets=[secrets])
 @modal.asgi_app()
