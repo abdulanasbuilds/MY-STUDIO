@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   // 6. Forward to Modal backend
   const modalBaseUrl = process.env.MODAL_BASE_URL;
-  const modalToken = process.env.MODAL_API_SECRET_TOKEN;
+  const modalToken = process.env.API_SECRET_TOKEN || process.env.MODAL_API_SECRET_TOKEN;
 
   if (modalBaseUrl && modalToken) {
     fetch(`${modalBaseUrl}/generate/documentary`, {

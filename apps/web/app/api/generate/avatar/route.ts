@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
   // 7. Forward to Modal backend (fire-and-forget)
   const modalBaseUrl = process.env.MODAL_BASE_URL;
-  const modalToken = process.env.MODAL_API_SECRET_TOKEN;
+  const modalToken = process.env.API_SECRET_TOKEN || process.env.MODAL_API_SECRET_TOKEN;
 
   if (modalBaseUrl && modalToken) {
     // Non-blocking: trigger Modal and don't await the full pipeline

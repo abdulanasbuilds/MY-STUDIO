@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 2. Verify API token from Modal
-  const expectedToken = process.env.MODAL_API_SECRET_TOKEN;
+  const expectedToken = process.env.API_SECRET_TOKEN || process.env.MODAL_API_SECRET_TOKEN;
   if (!expectedToken || parsed.data.api_token !== expectedToken) {
     return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
   }
