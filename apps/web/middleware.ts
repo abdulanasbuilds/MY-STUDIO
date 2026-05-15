@@ -4,7 +4,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
-const PUBLIC_ROUTES = ['/login', '/api/webhooks'];
+const PUBLIC_ROUTES = ['/login', '/api'];
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
