@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   // 6. Forward to Modal backend (fire-and-forget)
   const modalBaseUrl = process.env.MODAL_BASE_URL || "https://abdulanassofficial--my-studio-fastapi-app.modal.run";
-  const modalToken = process.env.API_SECRET_TOKEN || process.env.MODAL_API_SECRET_TOKEN;
+  const modalToken = process.env.API_SECRET_TOKEN || process.env.MODAL_API_SECRET_TOKEN || 'f1KNqhD6j6k4Bv31CO7WXd63Nt_rwtpZdAGhErm6onM';
 
   if (modalBaseUrl && modalToken) {
     fetch(`${modalBaseUrl}/generate/remix`, {
