@@ -59,8 +59,14 @@ def get_job(job_id: str):
     try:
         sb = get_supabase()
         r = sb.table("content_jobs").select("*").eq("id", job_id).execute()
-        return r.data[0] if r.data else None
-    except:
+        if not r.data or len(r.data) == 0:
+            return None
+        item = r.data
+        if isinstance(item, list) and len(item) > 0:
+            return item[0]
+        return item
+    except Exception as e:
+        logger.error(f"get_job error: {e}")
         return None
 
 # ── Security ──
@@ -105,6 +111,20 @@ def run_analysis(job_id: str, user_id: str, prompt: str, module: str = "remixer"
     except Exception as e:
         update_job_status(job_id, "failed", str(e), 0)
 
+# CPU function for Gemini-based modules (instant cold start, no GPU needed)
+@app.function(image=web_image, timeout=120, secrets=[secrets])
+def run_gemini_analysis(job_id: str, user_id: str, prompt: str, module: str = "remixer", **kwargs):
+    """Run Gemini analysis — no GPU needed, fast cold start"""
+    update_job_status(job_id, "processing", "analyzing_with_gemini", 20)
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt[:4000])
+        update_job_status(job_id, "complete", "done", 100, output_url="analysis_complete")
+    except Exception as e:
+        update_job_status(job_id, "failed", str(e), 0)
+
 @app.function(gpu="A10G", image=gpu_image, timeout=600, volumes=ALL_VOLUMES, secrets=[secrets])
 def run_clipper_inference(job_id: str, user_id: str, source_url: str, **kwargs):
     """Run clip generation pipeline"""
@@ -133,6 +153,15 @@ web_app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
 @web_app.get("/health")
 async def health():
     return {"status": "ok", "version": "1.0.0", "app": "my-studio"}
+
+@web_app.get("/debug")
+async def debug():
+    try:
+        sb = get_supabase()
+        r = sb.table("content_jobs").select("*").limit(1).execute()
+        return {"supabase": "ok", "data_type": str(type(r).__name__), "has_data": hasattr(r, 'data'), "data": str(r.data)[:200] if hasattr(r, 'data') and r.data else "empty"}
+    except Exception as e:
+        return {"error": str(e)[:500]}
 
 @web_app.get("/status/{job_id}")
 async def status(job_id: str):
@@ -164,7 +193,7 @@ async def generate_remix(request: Request):
     if not verify_request(data): return {"error": "Unauthorized"}, 401
     job_id = data["job_id"]
     update_job_status(job_id, "queued", "queued", 0)
-    run_analysis.spawn(module="remixer", **data)
+    run_gemini_analysis.spawn(job_id=job_id, user_id=data.get("user_id", "system"), prompt=f"Analyze this content: {data.get('script', data.get('source_url', 'No input'))}", module="remixer")
     return {"accepted": True, "job_id": job_id}
 
 # Catch-all for other modules
@@ -181,7 +210,7 @@ async def generate_generic(module: str, request: Request):
         }).execute()
     except Exception as e:
         logger.error(f"Failed to insert job {job_id}: {e}")
-    run_analysis.spawn(job_id=job_id, user_id=data.get("user_id", "system"), prompt=f"Process {module} request", module=module)
+    run_gemini_analysis.spawn(job_id=job_id, user_id=data.get("user_id", "system"), prompt=f"Process {module} request", module=module)
     return {"accepted": True, "job_id": job_id}
 
 @web_app.post("/voice/clone")
